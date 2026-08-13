@@ -1,5 +1,5 @@
 import React from 'react';
-import { Droplets, Sun, Sparkles, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Droplets, Sun, AlertCircle, CheckCircle2, Clock, Globe } from 'lucide-react';
 
 export default function PlantCard({ plant, onWater, onClick }) {
   // Cálculo de dias até a próxima rega
@@ -32,6 +32,20 @@ export default function PlantCard({ plant, onWater, onClick }) {
     onWater(plant.id);
   };
 
+  // Determinar rótulo de luz
+  const lightType = plant.sunlight?.lightType || (plant.sunlight?.period?.toLowerCase().includes('direto') ? 'direta' : plant.sunlight?.period?.toLowerCase().includes('sombra') ? 'sombra' : 'indireta');
+  const getLightBadge = () => {
+    if (lightType === 'direta') {
+      return { text: 'Sol Direto', className: 'badge-sun-direct' };
+    }
+    if (lightType === 'sombra') {
+      return { text: 'Sombra', className: 'badge-shade' };
+    }
+    return { text: 'Luz Indireta', className: 'badge-sun-indirect' };
+  };
+
+  const lightBadge = getLightBadge();
+
   return (
     <div className="plant-card" onClick={() => onClick(plant)}>
       <div className="card-img-wrapper">
@@ -42,12 +56,10 @@ export default function PlantCard({ plant, onWater, onClick }) {
           loading="lazy"
         />
         <div className="badge-overlay">
-          {plant.sunlight?.period && (
-            <span className="badge badge-sun">
-              <Sun size={12} />
-              {plant.sunlight.period.split('/')[0]}
-            </span>
-          )}
+          <span className={`badge ${lightBadge.className}`}>
+            <Sun size={12} />
+            {lightBadge.text}
+          </span>
 
           {needsWater && !isWateredToday && (
             <span className="badge badge-urgent">
@@ -60,16 +72,27 @@ export default function PlantCard({ plant, onWater, onClick }) {
 
       <div className="card-body">
         <h3 className="card-title">{plant.commonName}</h3>
-        <p className="card-subtitle">{plant.scientificName || 'Espécie não especificada'}</p>
+        <p className="card-subtitle">{plant.scientificName || 'Espécie botânica'}</p>
+
+        {plant.origin && (
+          <div className="card-origin-snippet" title={plant.origin}>
+            <Globe size={12} />
+            <span>{plant.origin}</span>
+          </div>
+        )}
 
         <div className="care-mini-info">
-          <div className="care-item">
+          <div className="care-item" title="Volume de água">
             <Droplets size={14} color="#0284c7" />
-            <span>{plant.watering?.amountMl || 'Frequente'}</span>
+            <span>{plant.watering?.amountMl || '150 - 200 ml'}</span>
           </div>
-          <div className="care-item">
-            <Sun size={14} color="#f59e0b" />
-            <span>{plant.plantType || 'Meia Sombra'}</span>
+          <div className="care-item" title="Frequência de rega">
+            <Clock size={14} color="#059669" />
+            <span>
+              {plant.watering?.frequencyTimesPerWeek 
+                ? `${plant.watering.frequencyTimesPerWeek}x / semana` 
+                : `A cada ${plant.watering?.frequencyDays || 3}d`}
+            </span>
           </div>
         </div>
 

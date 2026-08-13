@@ -60,7 +60,6 @@ export async function normalizeImageForAi(imageInput) {
 
   return new Promise((resolve) => {
     const img = new Image();
-    // NÃO usar crossOrigin em data URLs (evita falha silenciosa no iOS Safari)
     img.onload = () => {
       try {
         const maxDim = 1024;
@@ -114,16 +113,13 @@ export async function normalizeImageForAi(imageInput) {
 }
 
 export async function analyzePlantImage(base64Image, apiKey) {
-  // Normalizar e comprimir a imagem antes de qualquer envio
   const normalized = await normalizeImageForAi(base64Image);
   const cleanBase64 = normalized ? normalized.base64 : (base64Image.split(';base64,')[1] || base64Image).trim();
 
   if (apiKey && apiKey.trim() !== '') {
-    // Quando houver chave, usar a API real do Gemini e NÃO mascarar erros silenciosamente
     return await fetchGeminiVisionApi(cleanBase64, apiKey.trim());
   } else {
-    // Sem chave inserida: usar modo simulado com delay realista
-    await new Promise(r => setTimeout(r, 1800));
+    await new Promise(r => setTimeout(r, 1600));
     return simulateSmartAiAnalysis();
   }
 }
@@ -139,7 +135,6 @@ async function getVisionModels(apiKey) {
           .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
           .map(m => m.name.replace(/^models\//, ''));
         
-        // Priorizar modelos mais rápidos e adequados para visão
         const priority = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro'];
         const sorted = [];
         for (const p of priority) {
@@ -154,7 +149,6 @@ async function getVisionModels(apiKey) {
   } catch (e) {
     console.warn('Erro ao consultar lista de modelos do Google AI:', e);
   }
-  // Fallback padrão se a listagem falhar
   return ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
 }
 
@@ -162,41 +156,52 @@ async function fetchGeminiVisionApi(base64Data, apiKey) {
   const models = await getVisionModels(apiKey);
   let lastError = null;
 
-  const prompt = `Você é um botânico especialista e taxonomista vegetal de renome, com precisão idêntica ao identificador botânico do Apple Fotos e PlantNet.
-Sua missão é analisar minuciosamente a fotografia desta planta e identificar a sua espécie exata com base em suas características visuais visíveis.
+  const prompt = `Você é um botânico especialista e taxonomista vegetal de renome, com alta precisão botânica.
+Sua missão é analisar minuciosamente a fotografia desta planta e identificar a sua espécie exata, preenchendo todos os campos de cuidados botânicos detalhados.
 
 Orientações botânicas obrigatórias:
-1. Examine com atenção: formato da folha (cordiforme, lanceolada, oval, lobada, pinada), bordas (lisas, denteadas, onduladas), nervuras, disposição dos ramos, tonalidade de verde ou variegação, textura (cerosa, suculenta, aveludada), presença de espinhos, flores ou frutos.
-2. Identifique o Nome Popular mais difundido em português do Brasil e o Nome Científico binomial (Gênero e espécie).
-3. IMPORTANTE: Identifique a espécie que realmente está na foto. NÃO padronize para espécies comuns como Manjericão a menos que a planta seja efetivamente Manjericão (Ocimum basilicum).
-4. Avalie o estado de saúde visível da planta (ex: Saudável & Vigorosa, Solo Seco, Folhas Queimadas, Pragas, etc.).
-5. Defina a rotina botânica ideal para esta espécie específica (volume e frequência de rega, necessidade de luz, tipo de adubo e dicas de manejo).
+1. Identifique o Nome Popular em português e o Nome Científico binomial (Gênero e espécie).
+2. Informe a Origem / Região nativa de onde a planta vem no mundo (ex: Florestas Tropicais da Ásia, América do Sul, México, África Ocidental, etc.).
+3. Quantidade de Luz: Classifique o lightType estritamente como "direta", "indireta" ou "sombra".
+4. Observações de Luz: Detalhe os cuidados de iluminação (ex: se for sensível, avisar "evitar sol direto porque queima as folhas", horários de sol recomendados, etc.).
+5. Rega: Especifique quantas vezes por semana regar (frequencyTimesPerWeek), intervalo em dias (frequencyDays) e a quantidade exata de água (amountMl, ex: "150 - 200 ml").
+6. Solo: Especifique a mistura de solo e substrato que ela mais gosta (ex: rico em matéria orgânica, bem drenado, arenoso com perlita, etc.).
+7. Temperatura: Faixa de temperatura que ela gosta e tolera (ex: "18°C a 28°C, proteger de geadas").
+8. Como Cuidar / Manutenção: Instruções práticas detalhadas de manejo (ex: como e quando retirar folhas secas ou amareladas na base, podas, limpeza de folhas com pano úmido, borrifação de água).
+9. Adubação e Nutrição: Tipo de adubo e frequência recomendada.
 
 Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
 {
   "commonName": "Nome Popular em Português",
-  "scientificName": "Nome Científico (em Latim)",
-  "plantType": "Ex: Diurna / Sol da Manhã / Meia Sombra / Sombra / Sol Pleno",
-  "healthStatus": "Ex: Saudável & Vistosa ou Diagnóstico específico",
+  "scientificName": "Nome Científico (Latim)",
+  "origin": "De onde a planta vem (ex: Florestas Tropicais do Sudeste Asiático)",
+  "plantType": "Ex: Luz Indireta / Meia Sombra",
+  "healthStatus": "Ex: Saudável & Vigorosa",
+  "sunlight": {
+    "lightType": "indireta", // Deve ser exatamente "direta", "indireta" ou "sombra"
+    "period": "Ex: Luz Indireta Filtrada / Sol da Manhã Suave",
+    "hoursPerDay": "Ex: 4 a 6 horas diárias de claridade",
+    "notes": "Observações sobre iluminação (ex: Evitar sol direto para não queimar as folhas)"
+  },
   "watering": {
+    "frequencyTimesPerWeek": 2,
     "frequencyDays": 3,
-    "amountMl": "ex: 150 - 250 ml",
+    "amountMl": "150 - 200 ml",
     "description": "Como e quando regar esta espécie"
   },
-  "sunlight": {
-    "period": "Ex: Sol da Manhã / Luz Indireta Abundante / Sol Pleno",
-    "hoursPerDay": "ex: 4 a 6 horas",
-    "habits": "Tolerância solar e hábitos de luz"
-  },
+  "soilType": "Tipo de solo e substrato que a planta mais gosta",
+  "idealTemperature": "Faixa de temperatura recomendada (ex: 18°C a 27°C)",
+  "howToCare": "Como cuidar, como retirar folhas secas, podas e limpeza",
   "fertilizer": {
-    "type": "Ex: NPK 10-10-10, Húmus de Minhoca, Bokashi ou Torta de Mamona",
-    "frequency": "ex: A cada 30 dias na Primavera/Verão",
+    "type": "Ex: NPK 10-10-10 ou Húmus de Minhoca",
+    "frequency": "Ex: A cada 30 dias na Primavera/Verão",
     "notes": "Modo de aplicação"
   },
   "careTips": [
-    "Dica prática de cultivo ou poda 1",
-    "Dica sobre umidade, toxicidade ou substrato 2"
-  ]
+    "Dica prática adicional 1",
+    "Dica prática adicional 2"
+  ],
+  "notes": "Observações gerais sobre cultivo"
 }`;
 
   for (const model of models) {
@@ -241,7 +246,6 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
         throw new Error(`Nenhuma resposta de texto retornada pelo Gemini (${model}).`);
       }
 
-      // Tentar parsear o JSON retornado
       try {
         return JSON.parse(textOutput);
       } catch (e) {
@@ -254,94 +258,112 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
     } catch (err) {
       lastError = err;
       console.warn(`Tentativa com modelo ${model} falhou:`, err.message);
-      // Continua para o próximo modelo se este falhar
     }
   }
 
   throw lastError || new Error('Não foi possível identificar a planta com a API Gemini.');
 }
 
-// IA Simulada Inteligente com catálogos botânicos reais
+// IA Simulada Inteligente com catálogos botânicos detalhados
 function simulateSmartAiAnalysis() {
   const SIMULATED_RESULTS = [
     {
-      commonName: 'Manjericão Verde',
-      scientificName: 'Ocimum basilicum',
-      plantType: 'Diurna / Sol Pleno (Sol da Manhã)',
+      commonName: 'Aglaonema (Café-de-Salão)',
+      scientificName: 'Aglaonema commutatum',
+      origin: 'Florestas Tropicais do Sudeste Asiático (Tailândia, Filipinas e Malásia)',
+      plantType: 'Luz Indireta / Sombra Luminosa',
       healthStatus: 'Saudável & Vistosa',
-      watering: {
-        frequencyDays: 2,
-        amountMl: '150 - 200 ml',
-        description: 'O manjericão gosta de solo sempre levemente úmido, sem encharcar. Regar no início da manhã.'
-      },
       sunlight: {
-        period: 'Sol da Manhã (Direto)',
-        hoursPerDay: '5 a 6 horas',
-        habits: 'Planta aromática diurna. Necessita de pelo menos 4 horas diárias de sol direto para concentrar seus óleos essenciais.'
+        lightType: 'indireta',
+        period: 'Luz Indireta / Sombra Luminosa',
+        hoursPerDay: '4 a 6 horas de luz difusa',
+        notes: 'Não usar luz natural direta! Evitar sol direto porque queima as folhas e desbota o desenho rajado.'
       },
+      watering: {
+        frequencyTimesPerWeek: 2,
+        frequencyDays: 3,
+        amountMl: '150 - 200 ml',
+        description: 'Regar cerca de 2 vezes por semana. Deixar os primeiros centímetros de substrato secarem entre as regas.'
+      },
+      soilType: 'Substrato rico em matéria orgânica, bem aerado e com excelente drenagem (terra vegetal + perlita)',
+      idealTemperature: '18°C a 27°C (gosta de clima quente e úmido; evitar temperaturas abaixo de 15°C)',
+      howToCare: 'Retirar folhas secas ou amareladas cortando rente à base com tesoura limpa. Limpar a poeira das folhas com pano úmido para facilitar a respiração.',
       fertilizer: {
-        type: 'Húmus de Minhoca ou Adubo Orgânico de Frutas',
-        frequency: 'A cada 20 a 30 dias',
-        notes: 'Misturar húmus na terra superficial e regar em seguida.'
+        type: 'NPK 10-10-10 líquido ou Húmus de Minhoca',
+        frequency: 'A cada 30 a 45 dias na Primavera/Verão',
+        notes: 'Aplicar após a rega normal.'
       },
       careTips: [
-        'Beliscar (poda de beliscão) o topo dos ramos incentiva o crescimento de novas folhas laterais.',
-        'Retirar as flores assim que surgirem para prolongar a vida das folhas e seu aroma.'
-      ]
+        'Aprecia borrifação de água nas folhas se a umidade do ar estiver abaixo de 50%.',
+        'Manter longe de saídas de ar condicionado.'
+      ],
+      notes: 'Excelente planta purificadora para apartamentos e escritórios.'
     },
     {
-      commonName: 'Ficus Lyrata (Figueira-Lira)',
-      scientificName: 'Ficus lyrata',
-      plantType: 'Diurna / Meia Sombra',
-      healthStatus: 'Excelente Vigor',
-      watering: {
-        frequencyDays: 4,
-        amountMl: '300 - 400 ml',
-        description: 'Esperar os primeiros 3 a 5 cm de substrato secarem completamente antes de regar novamente.'
-      },
+      commonName: 'Manjericão Verde',
+      scientificName: 'Ocimum basilicum',
+      origin: 'Regiões Tropicais da Ásia Central e Índia',
+      plantType: 'Sol Pleno (Luz Direta)',
+      healthStatus: 'Saudável & Vigoroso',
       sunlight: {
-        period: 'Luz Indireta Abundante / Sol da Manhã',
-        hoursPerDay: '6 horas de luz filtrada',
-        habits: 'Adora ficar perto de janelas voltadas para o nascente. Não gosta de ser mudada de lugar com frequência.'
+        lightType: 'direta',
+        period: 'Sol da Manhã Direto',
+        hoursPerDay: '5 a 6 horas de sol direto',
+        notes: 'Necessita de luz solar direta diária para concentrar seus óleos essenciais e manter o aroma intenso.'
       },
+      watering: {
+        frequencyTimesPerWeek: 3,
+        frequencyDays: 2,
+        amountMl: '150 - 200 ml',
+        description: 'Regar de 3 a 4 vezes por semana no início da manhã. Manter o solo úmido sem encharcar as raízes.'
+      },
+      soilType: 'Solo fértil, fofo, rico em húmus e com boa drenagem',
+      idealTemperature: '20°C a 30°C (muito sensível ao frio e geadas)',
+      howToCare: 'Retirar flores assim que surgirem para manter a força nas folhas. Poda de beliscão (desponte) no topo para ramificar a planta.',
       fertilizer: {
-        type: 'NPK 10-10-10 Líquido ou Adubo para Folhagens',
-        frequency: 'A cada 30 dias nos meses de calor',
-        notes: 'Não adubar no inverno quando a planta entra em repouso.'
+        type: 'Húmus de Minhoca ou Adubo Orgânico Bokashi',
+        frequency: 'A cada 20 a 30 dias',
+        notes: 'Incorporar na terra superficial.'
       },
       careTips: [
-        'Limpar as folhas largas periodicamente para remover poeira e manter o brilho natural.',
-        'Gira o vaso 90 graus a cada mês para que a folhagem receba luz de forma uniforme.'
-      ]
+        'Evitar molhar as folhas ao regar no fim da tarde para prevenir fungos.',
+        'Colher as folhas de cima para baixo.'
+      ],
+      notes: 'Planta aromática e culinária essencial.'
     },
     {
       commonName: 'Samambaia Americana',
       scientificName: 'Nephrolepis exaltata',
-      plantType: 'Sombra / Iluminação Indireta',
-      healthStatus: 'Folhagem Saudável',
-      watering: {
-        frequencyDays: 2,
-        amountMl: '200 - 250 ml',
-        description: 'Manter a terra sempre úmida e borrifar água limpa nas frondes (folhas) em dias quentes.'
-      },
+      origin: 'Florestas Tropicais Úmidas das Américas e Polinésia',
+      plantType: 'Sombra / Luz Indireta',
+      healthStatus: 'Folhagem Verde Vistosa',
       sunlight: {
-        period: 'Sombra Luminosa / Sem Sol Direto',
-        hoursPerDay: 'Luz indireta constante',
-        habits: 'Sensível ao sol forte direto que queima as pontas das folhas. Prefere ambiente com alta umidade.'
+        lightType: 'sombra',
+        period: 'Sombra Luminosa / Luz Filtrada',
+        hoursPerDay: 'Claridade indireta constante',
+        notes: 'Nunca expor ao sol direto! O sol direto queima e seca as frondes rapidamente.'
       },
+      watering: {
+        frequencyTimesPerWeek: 3,
+        frequencyDays: 2,
+        amountMl: '200 - 300 ml',
+        description: 'Regar cerca de 3 vezes por semana mantendo o solo sempre levemente úmido. Nunca deixar secar por completo.'
+      },
+      soilType: 'Substrato leve com alta retenção de umidade (composto orgânico + fibra de coco + casca de pinus)',
+      idealTemperature: '18°C a 26°C (proteger de vento forte e ar condicionado)',
+      howToCare: 'Podar e retirar folhas e ramos secos na base para dar espaço aos novos brotos. Borrifar água diariamente nas folhas em dias secos.',
       fertilizer: {
         type: 'Torta de Mamona com Farinha de Osso ou NPK 05-05-05',
         frequency: 'A cada 40 dias',
-        notes: 'Aplicar pequenas doses nas bordas do vaso.'
+        notes: 'Aplicar nas laterais do vaso.'
       },
       careTips: [
-        'Proteger de correntes de ar frio e ar condicionado.',
-        'Borrifar água nas folhas diariamente durante os meses mais secos do ano.'
-      ]
+        'Ideal para cultivo em vasos suspensos em varandas protegidas ou banheiros bem iluminados.',
+        'Girar o vaso a cada 2 meses para crescimento uniforme.'
+      ],
+      notes: 'Ajuda a umedecer o ar e trazer sensação de frescor ao ambiente.'
     }
   ];
 
-  // Selecionar um resultado aleatório da base simulada
-  const selected = SIMULATED_RESULTS[Math.floor(Math.random() * SIMULATED_RESULTS.length)];
-  return selected;
+  return SIMULATED_RESULTS[Math.floor(Math.random() * SIMULATED_RESULTS.length)];
 }

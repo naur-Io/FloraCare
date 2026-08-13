@@ -244,6 +244,7 @@ button, input, select, textarea {
 .hero-text p {
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.95rem;
+  max-width: 600px;
 }
 
 .stats-grid {
@@ -361,6 +362,7 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   position: relative;
+  cursor: pointer;
 }
 
 .plant-card:hover {
@@ -409,14 +411,22 @@ button, input, select, textarea {
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
-.badge-sun {
-  background: rgba(254, 243, 199, 0.9);
+.badge-sun-direct {
+  background: rgba(254, 243, 199, 0.95);
   color: #92400e;
+  border: 1px solid #fde68a;
 }
 
-.badge-water {
-  background: rgba(224, 242, 254, 0.9);
-  color: #075985;
+.badge-sun-indirect {
+  background: rgba(236, 253, 245, 0.95);
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-shade {
+  background: rgba(243, 244, 246, 0.95);
+  color: #374151;
+  border: 1px solid #e5e7eb;
 }
 
 .badge-urgent {
@@ -444,7 +454,19 @@ button, input, select, textarea {
   font-size: 0.825rem;
   color: var(--text-muted);
   font-style: italic;
+  margin-bottom: 8px;
+}
+
+.card-origin-snippet {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.775rem;
+  color: var(--earth-600);
   margin-bottom: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .care-mini-info {
@@ -479,7 +501,6 @@ button, input, select, textarea {
 .water-status {
   font-size: 0.8rem;
   font-weight: 600;
-
   display: flex;
   align-items: center;
   gap: 5px;
@@ -514,7 +535,7 @@ button, input, select, textarea {
   background: var(--surface);
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: min(94vw, 620px);
+  max-width: min(94vw, 680px);
   max-height: 90vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -603,14 +624,163 @@ button, input, select, textarea {
   object-fit: cover;
 }
 
-/* Form Styles */
+/* Origin Badge in Plant Detail View */
+.plant-origin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--earth-50);
+  color: var(--earth-800);
+  border: 1px solid var(--earth-100);
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.825rem;
+  margin-top: 8px;
+}
+
+/* Botanical Detail Cards Grid */
+.plant-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.detail-card {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+  transition: border-color var(--transition-fast);
+}
+
+.detail-card-sun {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.detail-card-water {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.detail-card-soil {
+  background: #faf5f0;
+  border-color: #e7ded5;
+}
+
+.detail-card-temp {
+  background: #fff7ed;
+  border-color: #ffedd5;
+}
+
+.detail-card-care {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.detail-card-fertilizer {
+  background: #faf5ff;
+  border-color: #e9d5ff;
+}
+
+.detail-card-notes {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.detail-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.sun-header { color: #b45309; }
+.water-header { color: #0369a1; }
+.soil-header { color: #5d4037; }
+.temp-header { color: #c2410c; }
+.care-header { color: #15803d; }
+.fertilizer-header { color: #7e22ce; }
+.notes-header { color: #475569; }
+
+.detail-field {
+  font-size: 0.875rem;
+  margin-bottom: 5px;
+  color: var(--text-main);
+}
+
+.detail-subtext {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-main);
+}
+
+.detail-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  margin-top: 8px;
+}
+
+.detail-notice-sun {
+  background: rgba(245, 158, 11, 0.14);
+  color: #92400e;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Plant Manual Entry Form */
+.plant-manual-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-section {
+  background: var(--primary-50);
+  border: 1px solid rgba(27, 59, 43, 0.1);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.form-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(27, 59, 43, 0.08);
+}
+
+.form-section-header h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primary-900);
+  margin: 0;
+}
+
+.section-icon {
+  flex-shrink: 0;
+  color: var(--primary-700);
+}
+
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
 }
 
 .form-label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.825rem;
   font-weight: 700;
   color: var(--primary-900);
   margin-bottom: 6px;
@@ -618,12 +788,13 @@ button, input, select, textarea {
 
 .form-input, .form-select, .form-textarea {
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: var(--surface);
   color: var(--text-main);
   outline: none;
+  font-size: 0.9rem;
   transition: border-color var(--transition-fast);
 }
 
@@ -632,10 +803,15 @@ button, input, select, textarea {
   box-shadow: 0 0 0 3px rgba(76, 150, 111, 0.15);
 }
 
+.form-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 12px;
 }
 
 /* Empty State */
@@ -787,6 +963,9 @@ html, body {
   .nav-btn-text-short {
     display: inline;
   }
+  .plant-details-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -900,4 +1079,3 @@ html, body {
     height: 13px;
   }
 }
-

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Search, Plus, Leaf, Droplets, Sun, Sparkles, Filter } from 'lucide-react';
+import { Search, Plus, Leaf, Droplets, Sun, Sparkles, Filter, CloudSun, Moon } from 'lucide-react';
 import Navbar from './components/Navbar';
 import PlantCard from './components/PlantCard';
 import PlantDetailModal from './components/PlantDetailModal';
@@ -12,7 +12,7 @@ import { getStoredPlants, savePlant, deletePlant, markAsWatered, getStoredApiKey
 export default function App() {
   const [plants, setPlants] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'needs_water' | 'watered' | 'sun' | 'shade'
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'needs_water' | 'direct_sun' | 'indirect_light' | 'shade'
 
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -50,6 +50,9 @@ export default function App() {
   const handleSavePlant = async (plantData) => {
     const updated = await savePlant(plantData);
     setPlants(updated);
+    if (selectedPlant && selectedPlant.id === plantData.id) {
+      setSelectedPlant(plantData);
+    }
   };
 
   // Excluir planta
@@ -70,13 +73,19 @@ export default function App() {
 
   // Filtragem de plantas
   const filteredPlants = plants.filter(p => {
-    // Busca por nome
-    const matchesSearch = p.commonName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.scientificName && p.scientificName.toLowerCase().includes(searchTerm.toLowerCase()));
+    // Busca abrangente
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (p.commonName && p.commonName.toLowerCase().includes(term)) ||
+      (p.scientificName && p.scientificName.toLowerCase().includes(term)) ||
+      (p.origin && p.origin.toLowerCase().includes(term)) ||
+      (p.soilType && p.soilType.toLowerCase().includes(term)) ||
+      (p.notes && p.notes.toLowerCase().includes(term)) ||
+      (p.sunlight?.notes && p.sunlight.notes.toLowerCase().includes(term));
     
     if (!matchesSearch) return false;
 
-    // Filtros por categoria
+    // Filtros por categoria de cuidados e luz
     if (activeFilter === 'needs_water') {
       const last = new Date(p.lastWatered);
       const freq = p.watering?.frequencyDays || 3;
@@ -84,18 +93,18 @@ export default function App() {
       return diffHours >= (freq * 24 - 12);
     }
 
-    if (activeFilter === 'watered') {
-      const last = new Date(p.lastWatered);
-      const diffHours = (now - last) / (1000 * 60 * 60);
-      return diffHours < 14;
+    const lightType = p.sunlight?.lightType || (p.sunlight?.period?.toLowerCase().includes('direto') ? 'direta' : p.sunlight?.period?.toLowerCase().includes('sombra') ? 'sombra' : 'indireta');
+
+    if (activeFilter === 'direct_sun') {
+      return lightType === 'direta';
     }
 
-    if (activeFilter === 'sun') {
-      return p.sunlight?.period?.toLowerCase().includes('sol') || p.plantType?.toLowerCase().includes('sol');
+    if (activeFilter === 'indirect_light') {
+      return lightType === 'indireta';
     }
 
     if (activeFilter === 'shade') {
-      return p.sunlight?.period?.toLowerCase().includes('sombra') || p.plantType?.toLowerCase().includes('sombra');
+      return lightType === 'sombra';
     }
 
     return true;
@@ -115,7 +124,7 @@ export default function App() {
         <section className="hero-header">
           <div className="hero-text">
             <h1>Meu Jardim Inteligente 🌿</h1>
-            <p>Acompanhe o crescimento, adubação e rotina de rega das suas plantas com inteligência artificial.</p>
+            <p>Guia botânico completo com quantidade de luz, rega, origem, temperatura, tipo de solo e cuidados de poda.</p>
           </div>
 
           <div className="stats-grid">
@@ -139,7 +148,7 @@ export default function App() {
             <Search className="search-icon" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar planta por nome popular ou científico..."
+              placeholder="Buscar por nome, origem, tipo de solo ou cuidados..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
@@ -162,18 +171,27 @@ export default function App() {
             </button>
 
             <button 
-              className={`chip ${activeFilter === 'sun' ? 'active' : ''}`}
-              onClick={() => setActiveFilter('sun')}
+              className={`chip ${activeFilter === 'direct_sun' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('direct_sun')}
             >
               <Sun size={14} style={{ display: 'inline', marginRight: '4px' }} />
-              Sol Pleno
+              Luz Direta
+            </button>
+
+            <button 
+              className={`chip ${activeFilter === 'indirect_light' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('indirect_light')}
+            >
+              <CloudSun size={14} style={{ display: 'inline', marginRight: '4px' }} />
+              Luz Indireta
             </button>
 
             <button 
               className={`chip ${activeFilter === 'shade' ? 'active' : ''}`}
               onClick={() => setActiveFilter('shade')}
             >
-              Meia Sombra
+              <Moon size={14} style={{ display: 'inline', marginRight: '4px' }} />
+              Sombra
             </button>
           </div>
         </section>
@@ -194,7 +212,7 @@ export default function App() {
           <div className="empty-state">
             <Leaf className="empty-icon" />
             <h3>Nenhuma planta encontrada</h3>
-            <p>Tire uma foto do seu celular ou adicione uma planta manualmente para começar seu diário de cultivo.</p>
+            <p>Adicione uma planta manualmente ou tire uma foto com a IA para iniciar seu diário de cultivo.</p>
             <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
               <Plus size={18} />
               <span>Adicionar Primeira Planta</span>
