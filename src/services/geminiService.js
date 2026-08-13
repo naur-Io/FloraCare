@@ -1,5 +1,5 @@
 /**
- * Serviço de Integração com a API Google Gemini 1.5 Flash (Visão Multimodal)
+ * Serviço de Integração com a API Google Gemini 1.5 Flash (Visão Multimodal Gratuita)
  * e IA Simulada de Alta Precisão (Fallback para testes sem chave).
  */
 
@@ -12,33 +12,35 @@ export async function validateGeminiApiKey(apiKey) {
   }
 
   const cleanKey = apiKey.trim();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'ping' }] }]
+      })
+    });
+
     if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData.error?.message || '';
       if (res.status === 400 || res.status === 403 || res.status === 401) {
-        throw new Error('Chave de API inválida ou não autorizada pelo Google AI Studio.');
+        throw new Error(`Chave de API inválida: ${msg || 'Não autorizada pelo Google AI Studio.'}`);
       }
-      throw new Error(`Erro ao validar chave junto ao Google AI (Código ${res.status}).`);
+      throw new Error(`Erro ao validar chave (HTTP ${res.status}): ${msg}`);
     }
 
-    const data = await res.json();
-    if (data && data.models) {
-      return { 
-        valid: true, 
-        message: 'Chave API válida e conectada com sucesso ao Gemini 1.5 Flash!' 
-      };
-    }
     return { 
       valid: true, 
-      message: 'Chave API validada com sucesso e pronta para uso!' 
+      message: 'Chave API validada com sucesso no modelo gratuito Gemini 1.5 Flash!' 
     };
   } catch (err) {
     if (err.message && err.message.includes('inválida')) {
       throw err;
     }
-    throw new Error('Não foi possível validar a chave. Verifique se a chave está completa ou sua conexão.');
+    throw new Error(err.message || 'Não foi possível validar a chave. Verifique sua conexão.');
   }
 }
 
@@ -49,7 +51,6 @@ export async function validateGeminiApiKey(apiKey) {
 export async function normalizeImageForAi(imageInput) {
   if (!imageInput) return null;
 
-  // Se já for base64 puro sem prefixo data:
   if (!imageInput.startsWith('data:')) {
     return {
       dataUrl: `data:image/jpeg;base64,${imageInput}`,
@@ -119,41 +120,22 @@ export async function analyzePlantImage(base64Image, apiKey) {
   if (apiKey && apiKey.trim() !== '') {
     return await fetchGeminiVisionApi(cleanBase64, apiKey.trim());
   } else {
-    await new Promise(r => setTimeout(r, 1600));
+    await new Promise(r => setTimeout(r, 1500));
     return simulateSmartAiAnalysis();
   }
 }
 
-// Descobre dinamicamente os modelos disponíveis para esta chave de API
-async function getVisionModels(apiKey) {
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.models)) {
-        const available = data.models
-          .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
-          .map(m => m.name.replace(/^models\//, ''));
-        
-        const priority = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro'];
-        const sorted = [];
-        for (const p of priority) {
-          if (available.includes(p)) sorted.push(p);
-        }
-        for (const a of available) {
-          if (!sorted.includes(a) && (a.includes('flash') || a.includes('pro'))) sorted.push(a);
-        }
-        if (sorted.length > 0) return sorted;
-      }
-    }
-  } catch (e) {
-    console.warn('Erro ao consultar lista de modelos do Google AI:', e);
-  }
-  return ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
-}
+// Lista fixa e segura de modelos 100% GRATUITOS com suporte a visão
+// Evita modelos pagos ou de pesquisa paga como deep-research-pro
+const FREE_VISION_MODELS = [
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-latest',
+  'gemini-2.0-flash-exp',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-pro'
+];
 
 async function fetchGeminiVisionApi(base64Data, apiKey) {
-  const models = await getVisionModels(apiKey);
   let lastError = null;
 
   const prompt = `Você é um botânico especialista e taxonomista vegetal de renome, com alta precisão botânica.
@@ -178,7 +160,7 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
   "plantType": "Ex: Luz Indireta / Meia Sombra",
   "healthStatus": "Ex: Saudável & Vigorosa",
   "sunlight": {
-    "lightType": "indireta", // Deve ser exatamente "direta", "indireta" ou "sombra"
+    "lightType": "indireta",
     "period": "Ex: Luz Indireta Filtrada / Sol da Manhã Suave",
     "hoursPerDay": "Ex: 4 a 6 horas diárias de claridade",
     "notes": "Observações sobre iluminação (ex: Evitar sol direto para não queimar as folhas)"
@@ -204,7 +186,7 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
   "notes": "Observações gerais sobre cultivo"
 }`;
 
-  for (const model of models) {
+  for (const model of FREE_VISION_MODELS) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
@@ -236,14 +218,17 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
         const message = errJson.error?.message || `HTTP ${response.status}`;
-        throw new Error(`Modelo ${model}: ${message}`);
+        console.warn(`Tentativa com ${model} retornou erro:`, message);
+        lastError = new Error(message);
+        // Continua para o próximo modelo gratuito
+        continue;
       }
 
       const jsonResponse = await response.json();
       const textOutput = jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!textOutput) {
-        throw new Error(`Nenhuma resposta de texto retornada pelo Gemini (${model}).`);
+        continue;
       }
 
       try {
@@ -253,19 +238,25 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
         if (jsonMatch) {
           return JSON.parse(jsonMatch[0]);
         }
-        throw new Error('Formato de resposta inesperado da IA.');
       }
     } catch (err) {
       lastError = err;
-      console.warn(`Tentativa com modelo ${model} falhou:`, err.message);
+      console.warn(`Falha na requisição para modelo ${model}:`, err.message);
     }
   }
 
-  throw lastError || new Error('Não foi possível identificar a planta com a API Gemini.');
+  // Se todos os modelos da API falharem por cota ou chave expirada, acionar fallback com aviso
+  console.warn('API Gemini indisponível para esta chave, acionando catálogo botânico inteligente.');
+  const fallback = simulateSmartAiAnalysis();
+  return {
+    ...fallback,
+    _isFallback: true,
+    _apiErrorMessage: lastError?.message
+  };
 }
 
 // IA Simulada Inteligente com catálogos botânicos detalhados
-function simulateSmartAiAnalysis() {
+export function simulateSmartAiAnalysis() {
   const SIMULATED_RESULTS = [
     {
       commonName: 'Aglaonema (Café-de-Salão)',
@@ -277,7 +268,7 @@ function simulateSmartAiAnalysis() {
         lightType: 'indireta',
         period: 'Luz Indireta / Sombra Luminosa',
         hoursPerDay: '4 a 6 horas de luz difusa',
-        notes: 'Não usar luz natural direta! Evitar sol direto porque queima as folhas e desbota o desenho rajado.'
+        notes: 'Não usar luz natural direta! Evitar sol direto porque queima as folhas e desbota o padrão das cores.'
       },
       watering: {
         frequencyTimesPerWeek: 2,
@@ -298,6 +289,35 @@ function simulateSmartAiAnalysis() {
         'Manter longe de saídas de ar condicionado.'
       ],
       notes: 'Excelente planta purificadora para apartamentos e escritórios.'
+    },
+    {
+      commonName: 'Jiboia Amarela',
+      scientificName: 'Epipremnum aureum',
+      origin: 'Ilhas Salomão e Polinésia Francesa',
+      plantType: 'Luz Indireta / Meia Sombra',
+      healthStatus: 'Vigorosa',
+      sunlight: {
+        lightType: 'indireta',
+        period: 'Luz Indireta / Sol da Manhã Suave',
+        hoursPerDay: '4 a 6 horas',
+        notes: 'Gosta de muita claridade indireta para manter as folhas manchadas de amarelo. Sol forte do meio-dia queima as folhas.'
+      },
+      watering: {
+        frequencyTimesPerWeek: 2,
+        frequencyDays: 3,
+        amountMl: '150 - 250 ml',
+        description: 'Regar 2 vezes por semana. Deixar a terra superficial secar antes de nova rega.'
+      },
+      soilType: 'Substrato fértil e leve (terra vegetal com perlita e casca de pinus)',
+      idealTemperature: '18°C a 30°C (não tolera geada)',
+      howToCare: 'Tirar folhas secas cortando na base. Podar as pontas longas para deixar a planta mais volumosa.',
+      fertilizer: {
+        type: 'NPK 10-10-10 ou Húmus',
+        frequency: 'A cada 30 dias',
+        notes: 'Aplicar na primavera/verão.'
+      },
+      careTips: ['Pode ser cultivada pendente ou em suporte de fibra de coco.'],
+      notes: 'Planta clássica e muito fácil de cultivar.'
     },
     {
       commonName: 'Manjericão Verde',

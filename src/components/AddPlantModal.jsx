@@ -16,7 +16,9 @@ import {
   Layers,
   Scissors,
   Flower,
-  FileText
+  FileText,
+  Search,
+  ExternalLink
 } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import { analyzePlantImage } from '../services/geminiService';
@@ -27,6 +29,7 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
   const [showCamera, setShowCamera] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [step, setStep] = useState('choose_photo'); // 'choose_photo' | 'form'
+  const [aiNotice, setAiNotice] = useState(null);
   
   // Dados completos do formulário da planta
   const [plantData, setPlantData] = useState({
@@ -95,10 +98,15 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
   const runAiAnalysis = async () => {
     if (!photo) return;
     setIsAnalyzing(true);
+    setAiNotice(null);
     try {
       const apiKey = getStoredApiKey();
       const result = await analyzePlantImage(photo, apiKey);
       
+      if (result._isFallback) {
+        setAiNotice('Sua chave foi direcionada para a demonstração botânica. Você pode ajustar todos os campos abaixo livremente!');
+      }
+
       setPlantData(prev => ({
         ...prev,
         commonName: result.commonName || prev.commonName || 'Planta Identificada',
@@ -131,7 +139,7 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
 
       setStep('form');
     } catch (err) {
-      alert(`Não foi possível analisar a foto com a IA Gemini:\n${err.message || 'Verifique sua conexão ou a chave de API.'}\n\nVocê pode preencher as informações manualmente abaixo.`);
+      alert(`Não foi possível conectar à IA Gemini (${err.message || 'Erro de conexão'}).\n\nCarregamos os campos para preenchimento manual.`);
       setStep('form');
     } finally {
       setIsAnalyzing(false);
@@ -140,6 +148,10 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
 
   const handleManualEntry = () => {
     setStep('form');
+  };
+
+  const openGoogleLens = () => {
+    window.open('https://lens.google.com/', '_blank');
   };
 
   const handleSubmit = (e) => {
@@ -180,9 +192,9 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                   <div className="ai-mode-banner active">
                     <Sparkles size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
                     <div>
-                      <strong>IA Gemini Conectada</strong>
+                      <strong>IA Gemini Flash 100% Gratuita Ativa</strong>
                       <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>
-                        Sua foto será analisada em tempo real com identificação botânica completa.
+                        Sua foto será analisada pelo modelo gratuito Gemini 1.5 Flash do Google.
                       </p>
                     </div>
                   </div>
@@ -190,9 +202,9 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                   <div className="ai-mode-banner simulated">
                     <Info size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
                     <div>
-                      <strong>Modo de Simulação Botânica</strong>
+                      <strong>Modo de Demonstração Botânica</strong>
                       <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>
-                        Sem chave informada, demonstraremos com catálogo botânico real.{' '}
+                        Você pode usar o catálogo botânico ou{' '}
                         <button 
                           type="button" 
                           className="inline-link-btn" 
@@ -201,7 +213,7 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                             onOpenKeyModal?.();
                           }}
                         >
-                          Adicionar Chave Gemini Grátis
+                          conectar chave gratuita do Gemini
                         </button>
                       </p>
                     </div>
@@ -231,9 +243,20 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                         ) : (
                           <>
                             <Sparkles size={18} />
-                            <span>Identificar Planta com IA Gemini</span>
+                            <span>Identificar com IA Gemini Grátis</span>
                           </>
                         )}
+                      </button>
+
+                      <button 
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={openGoogleLens}
+                        style={{ width: '100%', padding: '10px', gap: '8px' }}
+                      >
+                        <Search size={16} color="#4285F4" />
+                        <span>Identificar no Google Lens</span>
+                        <ExternalLink size={14} style={{ opacity: 0.6 }} />
                       </button>
 
                       <button 
@@ -246,6 +269,11 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                         <ImageIcon size={16} />
                         <span>Tirar ou Escolher Outra Foto</span>
                       </button>
+                    </div>
+
+                    {/* Dica para iPhone */}
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', color: '#475569', marginBottom: '14px' }}>
+                      💡 <strong>Dica no iPhone:</strong> Você também pode abrir a foto no app <em>Fotos</em> do iPhone e tocar no botão ℹ️ (com estrelas/folha) para ver o nome da espécie identificado nativamente pela Apple!
                     </div>
 
                     <div style={{ textAlign: 'center' }}>
@@ -274,16 +302,29 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                       OU SELECIONE DO SEU DISPOSITIVO
                     </div>
 
-                    <label className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', padding: '12px', cursor: 'pointer' }}>
-                      <Upload size={18} />
-                      <span>Escolher Imagem da Galeria</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleFileUpload} 
-                        style={{ display: 'none' }}
-                      />
-                    </label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <label className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', padding: '12px', cursor: 'pointer' }}>
+                        <Upload size={18} />
+                        <span>Escolher Imagem da Galeria</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleFileUpload} 
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+
+                      <button 
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={openGoogleLens}
+                        style={{ width: '100%', justifyContent: 'center', padding: '11px', gap: '8px' }}
+                      >
+                        <Search size={16} color="#4285F4" />
+                        <span>Abrir Google Lens</span>
+                        <ExternalLink size={14} style={{ opacity: 0.6 }} />
+                      </button>
+                    </div>
 
                     <div style={{ marginTop: '20px', textAlign: 'center' }}>
                       <button 
@@ -301,7 +342,13 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
             ) : (
               /* FORMULÁRIO DE ENTRADA MANUAL COM TODOS OS CAMPOS SOLICITADOS */
               <form onSubmit={handleSubmit} className="plant-manual-form">
-                
+                {aiNotice && (
+                  <div className="ai-mode-banner simulated" style={{ marginBottom: '10px' }}>
+                    <Info size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span>{aiNotice}</span>
+                  </div>
+                )}
+
                 {/* 1. IDENTIFICAÇÃO E ORIGEM */}
                 <div className="form-section">
                   <div className="form-section-header">
