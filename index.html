@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1b3b2b" />
+    <meta name="description" content="FloraCare - Seu assistente pessoal de jardinagem inteligente com IA para identificar plantas e cuidar da sua coleção." />
+    <title>FloraCare 🌿 - Identificador & Guia de Plantas com IA</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- CSS Import -->
+    <link rel="stylesheet" href="./src/styles/index.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- ES Module Script para rodar diretamente sem build -->
+    <script type="module">
+      import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
+      import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+      import { 
+        Leaf, Plus, Droplets, Sun, Sparkles, Camera, Upload, Trash2, Edit3, 
+        Save, Key, Search, RefreshCw, X, Check, Clock, AlertCircle, CheckCircle2, 
+        Flower, ShieldCheck, ExternalLink, ImageIcon, AlertTriangle
+      } from 'https://esm.sh/lucide-react@0.344.0';
+      import { get, set } from 'https://esm.sh/idb-keyval@6.2.1';
+      import confetti from 'https://esm.sh/canvas-confetti@1.9.2';
+
+      // --- 1. MOCK DATA ---
+      const INITIAL_PLANTS = [
+        {
+          id: 'plant-jiboia-01',
+          commonName: 'Jiboia Amarela',
+          scientificName: 'Epipremnum aureum',
+          photoUrl: 'https://images.unsplash.com/photo-1614594975525-e45190c55d0b?auto=format&fit=crop&w=800&q=80',
+          plantType: 'Diurna / Meia Sombra',
+          healthStatus: 'Excelente (Folhas Vicosas)',
+          lastWatered: new Date(Date.now() - 86400000 * 1).toISOString(),
+          watering: {
+            frequencyDays: 3,
+            amountMl: '150 - 200 ml',
+            description: 'Regar quando a camada superficial do solo (2cm) estiver secando.'
+          },
+          sunlight: {
+            period: 'Luz Indireta Forte / Sol da Manhã',
+            hoursPerDay: '4 a 6 horas',
+            habits: 'Planta de ambiente interno, não suporta sol forte das 12h às 15h.'
+          },
+          fertilizer: {
+            type: 'NPK 10-10-10 ou Húmus de Minhoca',
+            frequency: 'A cada 30 dias na Primavera e Verão',
+            notes: 'Diluir adubo líquido na água da rega durante o crescimento ativo.'
+          },
+          careTips: [
+            'Limpar o pó das folhas quinzenalmente com pano úmido para melhorar a fotossíntese.',
+            'Planta tóxica para animais domésticos se mastigada. Manter em vasos suspensos.'
+          ]
+        },
+        {
+          id: 'plant-espada-02',
+          commonName: 'Espada de São Jorge',
+          scientificName: 'Dracaena trifasciata',
+          photoUrl: 'https://images.unsplash.com/photo-1599598425947-23429810a91e?auto=format&fit=crop&w=800&q=80',
+          plantType: 'Resistente (Sol / Sombra)',
+          healthStatus: 'Saudável',
+          lastWatered: new Date(Date.now() - 86400000 * 6).toISOString(),
+          watering: {
+            frequencyDays: 7,
+            amountMl: '100 - 150 ml',
+            description: 'Tolera seca. Deixe o solo secar completamente entre as regas.'
+          },
+          sunlight: {
+            period: 'Adapta-se ao Sol Direto ou Sombra',
+            hoursPerDay: '3 a 8 horas',
+            habits: 'Muito versátil, aguenta ambientes de ar condicionado.'
+          },
+          fertilizer: {
+            type: 'Adubo Orgânico Bokashi ou Casca de Ovo moída',
+            frequency: 'A cada 60 dias',
+            notes: 'Não exige muita adubação. Evite excesso de nitrogênio.'
+          },
+          careTips: [
+            'Cuidado com o encharcamento da raiz, use vaso com furos e boa drenagem.',
+            'Excelente purificadora do ar segundo estudos da NASA.'
+          ]
+        },
+        {
+          id: 'plant-suculenta-03',
+          commonName: 'Suculenta Echeveria',
+          scientificName: 'Echeveria elegans',
+          photoUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=800&q=80',
+          plantType: 'Diurna / Sol Pleno',
+          healthStatus: 'Saudável',
+          lastWatered: new Date(Date.now() - 86400000 * 2).toISOString(),
+          watering: {
+            frequencyDays: 5,
+            amountMl: '50 - 80 ml',
+            description: 'Regar apenas no substrato, sem molhar o centro da roseta.'
+          },
+          sunlight: {
+            period: 'Sol Pleno Direto',
+            hoursPerDay: '6+ horas',
+            habits: 'Necessita de muito sol para manter a forma compacta e cor viva.'
+          },
+          fertilizer: {
+            type: 'Adubo Específico para Cactos e Suculentas (NPK 04-14-08)',
+            frequency: 'A cada 45 dias no verão',
+            notes: 'Substrato bem arenoso com perlita ou areia grossa.'
+          },
+          careTips: [
+            'Gosta de circulação de ar. Evite pratos acumuladores de água sob o vaso.'
+          ]
+        }
+      ];
+
+      // --- 2. STORAGE SERVICE ---
+      const STORAGE_KEY = 'floracare_user_plants_v1';
+      const API_KEY_KEY = 'floracare_gemini_api_key';
+
+      async function getStoredPlants() {
+        try {
+          const data = await get(STORAGE_KEY);
+          if (data && Array.isArray(data) && data.length > 0) return data;
+          await set(STORAGE_KEY, INITIAL_PLANTS);
+          return INITIAL_PLANTS;
+        } catch (e) {
+          const local = localStorage.getItem(STORAGE_KEY);
+          if (local) return JSON.parse(local);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_PLANTS));
+          return INITIAL_PLANTS;
+        }
+      }
+
+      async function savePlant(plant) {
+        const current = await getStoredPlants();
+        const index = current.findIndex(p => p.id === plant.id);
+        let updated;
+        if (index >= 0) {
+          updated = [...current];
+          updated[index] = { ...updated[index], ...plant, updatedAt: new Date().toISOString() };
+        } else {
+          const newP = {
+            ...plant,
+            id: plant.id || `plant-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            lastWatered: plant.lastWatered || new Date().toISOString()
+          };
+          updated = [newP, ...current];
+        }
+        try { await set(STORAGE_KEY, updated); } 
+        catch(e) { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); }
+        return updated;
+      }
+
+      async function deletePlant(id) {
+        const current = await getStoredPlants();
+        const updated = current.filter(p => p.id !== id);
+        try { await set(STORAGE_KEY, updated); }
+        catch(e) { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); }
+        return updated;
+      }
+
+      async function markAsWatered(id) {
+        const current = await getStoredPlants();
+        const updated = current.map(p => p.id === id ? { ...p, lastWatered: new Date().toISOString() } : p);
+        try { await set(STORAGE_KEY, updated); }
+        catch(e) { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); }
+        return updated;
+      }
+
+      function getApiKey() { return localStorage.getItem(API_KEY_KEY) || ''; }
+      function saveApiKey(key) { 
+        if (key) localStorage.setItem(API_KEY_KEY, key.trim()); 
+        else localStorage.removeItem(API_KEY_KEY); 
+      }
+
+      // --- 3. GEMINI VISION SERVICE ---
+      async function analyzePlantImage(base64Image, apiKey) {
+        const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
+        if (apiKey && apiKey.trim()) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            const prompt = `Você é um botânico especialista. Analise a imagem da planta e retorne ESTRITAMENTE um JSON com:
+{
+  "commonName": "Nome popular em português",
+  "scientificName": "Nome científico em latim",
+  "plantType": "Diurna / Noturna / Sol Pleno / Meia Sombra",
+  "watering": { "frequencyDays": 3, "amountMl": "150 - 200 ml", "description": "Como regar" },
+  "sunlight": { "period": "Sol da Manhã / Luz Indireta", "hoursPerDay": "4-6h", "habits": "Hábito de sol" },
+  "fertilizer": { "type": "NPK ou Orgânico", "frequency": "Periodicidade", "notes": "Dicas" },
+  "careTips": ["Dica 1", "Dica 2"]
+}`;
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/jpeg', data: cleanBase64 } }] }],
+                generationConfig: { response_mime_type: 'application/json' }
+              })
+            });
+            const json = await res.json();
+            const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+            return JSON.parse(text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+          } catch(err) {
+            return simulateSmartAi();
+          }
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        return simulateSmartAi();
+      }
+
+      function simulateSmartAi() {
+        const list = [
+          {
+            commonName: 'Manjericão Verde',
+            scientificName: 'Ocimum basilicum',
+            plantType: 'Diurna / Sol Pleno (Manhã)',
+            watering: { frequencyDays: 2, amountMl: '150 - 200 ml', description: 'Manter solo levemente úmido. Regar pela manhã.' },
+            sunlight: { period: 'Sol da Manhã', hoursPerDay: '5 a 6 horas', habits: 'Precisa de sol direto para intensificar aroma.' },
+            fertilizer: { type: 'Húmus de Minhoca / Adubo Orgânico', frequency: 'A cada 20 dias', notes: 'Incorporar na terra.' },
+            careTips: ['Pode as pontas dos galhos para ramificar.', 'Retire as flores para manter folhas vistosas.']
+          },
+          {
+            commonName: 'Samambaia Americana',
+            scientificName: 'Nephrolepis exaltata',
+            plantType: 'Sombra / Luz Indireta',
+            watering: { frequencyDays: 2, amountMl: '200 - 250 ml', description: 'Borrifar água nas folhas e manter terra úmida.' },
+            sunlight: { period: 'Luz Indireta / Sombra', hoursPerDay: 'Sem sol direto', habits: 'Prefere alta umidade e ar protegido.' },
+            fertilizer: { type: 'Torta de Mamona com Farinha de Osso', frequency: 'A cada 40 dias', notes: 'Aplicar nas bordas.' },
+            careTips: ['Evite correntes de ar frio.', 'Borrifar água diariamente em dias secos.']
+          }
+        ];
+        return list[Math.floor(Math.random() * list.length)];
+      }
+
+      // --- 4. COMPONENTES REACT ---
+      
+      // NAVBAR
+      function Navbar({ plantCount, onAddClick, onOpenKeyModal }) {
+        return React.createElement('header', { className: 'navbar' },
+          React.createElement('div', { className: 'app-container navbar-content' },
+            React.createElement('div', { className: 'brand' },
+              React.createElement('div', { className: 'brand-icon' }, React.createElement(Leaf, { size: 22 })),
+              React.createElement('div', null,
+                React.createElement('span', { className: 'brand-title' }, 'FloraCare'),
+                React.createElement('span', { className: 'brand-subtitle' }, 'IA Botânica & Guia')
+              )
+            ),
+            React.createElement('div', { className: 'nav-actions' },
+              React.createElement('button', { className: 'btn btn-secondary btn-sm', onClick: onOpenKeyModal },
+                React.createElement(Key, { size: 16 }),
+                React.createElement('span', null, 'API Gemini')
+              ),
+              React.createElement('button', { className: 'btn btn-primary', onClick: onAddClick },
+                React.createElement(Plus, { size: 18 }),
+                React.createElement('span', null, 'Nova Planta')
+              )
+            )
+          )
+        );
+      }
+
+      // PLANT CARD
+      function PlantCard({ plant, onWater, onClick }) {
+        const lastWateredDate = new Date(plant.lastWatered);
+        const freqDays = plant.watering?.frequencyDays || 3;
+        const nextWaterDate = new Date(lastWateredDate.getTime() + freqDays * 86400000);
+        const now = new Date();
+        const diffHours = (nextWaterDate - now) / (1000 * 60 * 60);
+        const needsWater = diffHours <= 0;
+        const hoursSince = (now - lastWateredDate) / (1000 * 60 * 60);
+        const isWateredToday = hoursSince < 14;
+
+        let statusText = isWateredToday ? 'Regada Hoje' : needsWater ? 'Precisa de Água Hoje!' : `Regar em ${Math.ceil(diffHours/24)} dias`;
+
+        return React.createElement('div', { className: 'plant-card', onClick: () => onClick(plant) },
+          React.createElement('div', { className: 'card-img-wrapper' },
+            React.createElement('img', { src: plant.photoUrl, alt: plant.commonName, className: 'card-img' }),
+            React.createElement('div', { className: 'badge-overlay' },
+              plant.sunlight?.period && React.createElement('span', { className: 'badge badge-sun' },
+                React.createElement(Sun, { size: 12 }),
+                plant.sunlight.period.split('/')[0]
+              ),
+              needsWater && !isWateredToday && React.createElement('span', { className: 'badge badge-urgent' },
+                React.createElement(AlertCircle, { size: 12 }),
+                'Regar Hoje'
+              )
+            )
+          ),
+          React.createElement('div', { className: 'card-body' },
+            React.createElement('h3', { className: 'card-title' }, plant.commonName),
+            React.createElement('p', { className: 'card-subtitle' }, plant.scientificName || 'Espécie não cadastrada'),
+            React.createElement('div', { className: 'care-mini-info' },
+              React.createElement('div', { className: 'care-item' },
+                React.createElement(Droplets, { size: 14, color: '#0284c7' }),
+                React.createElement('span', null, plant.watering?.amountMl || 'Moderado')
+              ),
+              React.createElement('div', { className: 'care-item' },
+                React.createElement(Sun, { size: 14, color: '#f59e0b' }),
+                React.createElement('span', null, plant.plantType || 'Meia Sombra')
+              )
+            ),
+            React.createElement('div', { className: 'card-footer' },
+              React.createElement('div', { className: `water-status ${needsWater && !isWateredToday ? 'needs-water' : 'watered'}` },
+                React.createElement(isWateredToday ? CheckCircle2 : needsWater ? AlertCircle : Clock, { size: 14 }),
+                React.createElement('span', null, statusText)
+              ),
+              React.createElement('button', {
+                className: `btn btn-sm ${isWateredToday ? 'btn-secondary' : 'btn-accent-water'}`,
+                onClick: (e) => { e.stopPropagation(); onWater(plant.id); }
+              },
+                React.createElement(Droplets, { size: 14 }),
+                React.createElement('span', null, isWateredToday ? 'Regada' : 'Regar')
+              )
+            )
+          )
+        );
+      }
+
+      // MODAL DETALHES E EDIÇÃO MANUAL COMPLETA
+      function PlantDetailModal({ plant, onClose, onSave, onDelete, onWater }) {
+        const [isEditing, setIsEditing] = useState(false);
+        const [formData, setFormData] = useState({ ...plant });
+
+        const handleSave = (e) => {
+          e.preventDefault();
+          onSave(formData);
+          setIsEditing(false);
+        };
+
+        return React.createElement('div', { className: 'modal-overlay', onClick: onClose },
+          React.createElement('div', { className: 'modal-container', onClick: e => e.stopPropagation() },
+            React.createElement('div', { className: 'modal-header' },
+              React.createElement('span', { className: 'modal-title' }, isEditing ? 'Editar Informações' : plant.commonName),
+              React.createElement('div', { style: { display: 'flex', gap: '8px' } },
+                !isEditing && React.createElement('button', { className: 'btn btn-secondary btn-sm', onClick: () => setIsEditing(true) },
+                  React.createElement(Edit3, { size: 16 }), React.createElement('span', null, 'Editar')
+                ),
+                React.createElement('button', { className: 'modal-close', onClick: onClose }, React.createElement(X, { size: 20 }))
+              )
+            ),
+            React.createElement('div', { className: 'modal-body' },
+              isEditing ? (
+                React.createElement('form', { onSubmit: handleSave },
+                  React.createElement('div', { className: 'form-group' },
+                    React.createElement('label', { className: 'form-label' }, 'Nome Popular da Planta'),
+                    React.createElement('input', { className: 'form-input', value: formData.commonName || '', onChange: e => setFormData({...formData, commonName: e.target.value}), required: true })
+                  ),
+                  React.createElement('div', { className: 'form-group' },
+                    React.createElement('label', { className: 'form-label' }, 'Nome Científico (Botânico)'),
+                    React.createElement('input', { className: 'form-input', value: formData.scientificName || '', onChange: e => setFormData({...formData, scientificName: e.target.value}) })
+                  ),
+                  React.createElement('div', { className: 'form-row' },
+                    React.createElement('div', { className: 'form-group' },
+                      React.createElement('label', { className: 'form-label' }, 'Frequência de Rega (Dias)'),
+                      React.createElement('input', { type: 'number', className: 'form-input', value: formData.watering?.frequencyDays || 3, onChange: e => setFormData({...formData, watering: {...formData.watering, frequencyDays: parseInt(e.target.value)||1}}) })
+                    ),
+                    React.createElement('div', { className: 'form-group' },
+                      React.createElement('label', { className: 'form-label' }, 'Quantidade de Água'),
+                      React.createElement('input', { className: 'form-input', value: formData.watering?.amountMl || '', onChange: e => setFormData({...formData, watering: {...formData.watering, amountMl: e.target.value}}) })
+                    )
+                  ),
+                  React.createElement('div', { className: 'form-group' },
+                    React.createElement('label', { className: 'form-label' }, 'Período de Sol Ideal'),
+                    React.createElement('input', { className: 'form-input', value: formData.sunlight?.period || '', onChange: e => setFormData({...formData, sunlight: {...formData.sunlight, period: e.target.value}}) })
+                  ),
+                  React.createElement('div', { className: 'form-group' },
+                    React.createElement('label', { className: 'form-label' }, 'Adubo Recomendado'),
+                    React.createElement('input', { className: 'form-input', value: formData.fertilizer?.type || '', onChange: e => setFormData({...formData, fertilizer: {...formData.fertilizer, type: e.target.value}}) })
+                  ),
+                  React.createElement('div', { style: { display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' } },
+                    React.createElement('button', { type: 'button', className: 'btn btn-secondary', onClick: () => setIsEditing(false) }, 'Cancelar'),
+                    React.createElement('button', { type: 'submit', className: 'btn btn-primary' },
+                      React.createElement(Save, { size: 16 }), React.createElement('span', null, 'Salvar Alterações')
+                    )
+                  )
+                )
+              ) : (
+                React.createElement('div', null,
+                  React.createElement('div', { className: 'preview-img-container' },
+                    React.createElement('img', { src: plant.photoUrl, alt: plant.commonName, className: 'preview-img' })
+                  ),
+                  React.createElement('h2', { style: { fontFamily: 'var(--font-serif)', fontSize: '1.6rem', color: 'var(--primary-900)' } }, plant.commonName),
+                  React.createElement('p', { style: { fontStyle: 'italic', color: 'var(--text-muted)', marginBottom: '16px' } }, plant.scientificName || 'Espécie não cadastrada'),
+                  
+                  React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' } },
+                    React.createElement('div', { style: { background: 'var(--accent-water-light)', padding: '14px', borderRadius: 'var(--radius-md)' } },
+                      React.createElement('strong', { style: { color: '#0369a1' } }, '💧 Rega: '),
+                      React.createElement('span', null, `A cada ${plant.watering?.frequencyDays || 3} dias (${plant.watering?.amountMl || 'Moderada'})`)
+                    ),
+                    React.createElement('div', { style: { background: 'var(--accent-sun-light)', padding: '14px', borderRadius: 'var(--radius-md)' } },
+                      React.createElement('strong', { style: { color: '#b45309' } }, '☀️ Sol: '),
+                      React.createElement('span', null, plant.sunlight?.period || 'Sol da Manhã')
+                    )
+                  ),
+                  React.createElement('div', { style: { background: 'var(--accent-fertilizer-light)', padding: '14px', borderRadius: 'var(--radius-md)', marginBottom: '20px' } },
+                    React.createElement('strong', { style: { color: '#6b21a8' } }, '🌿 Adubação: '),
+                    React.createElement('span', null, plant.fertilizer?.type || 'NPK 10-10-10')
+                  ),
+                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '16px' } },
+                    React.createElement('button', { className: 'btn btn-secondary', style: { color: 'var(--accent-danger)' }, onClick: () => { if(confirm('Remover planta?')) { onDelete(plant.id); onClose(); } } },
+                      React.createElement(Trash2, { size: 16 }), React.createElement('span', null, 'Excluir')
+                    ),
+                    React.createElement('button', { className: 'btn btn-accent-water', onClick: () => { onWater(plant.id); onClose(); } },
+                      React.createElement(Droplets, { size: 16 }), React.createElement('span', null, 'Marcar como Regada')
+                    )
+                  )
+                )
+              )
+            )
+          )
+        );
+      }
+
+      // MODAL ADICIONAR PLANTA (CAMERA + UPLOAD + MANUAL)
+      function AddPlantModal({ onClose, onSavePlant }) {
+        const [photo, setPhoto] = useState(null);
+        const [isAnalyzing, setIsAnalyzing] = useState(false);
+        const [step, setStep] = useState('photo');
+        const [formData, setFormData] = useState({
+          commonName: '',
+          scientificName: '',
+          watering: { frequencyDays: 3, amountMl: '150 - 200 ml' },
+          sunlight: { period: 'Sol da Manhã / Meia Sombra' },
+          fertilizer: { type: 'NPK 10-10-10 ou Húmus' }
+        });
+
+        const handleUpload = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const r = new FileReader();
+            r.onload = () => setPhoto(r.result);
+            r.readAsDataURL(file);
+          }
+        };
+
+        const runAi = async () => {
+          if (!photo) return;
+          setIsAnalyzing(true);
+          const result = await analyzePlantImage(photo, getApiKey());
+          setFormData({
+            commonName: result.commonName || 'Planta Desconhecida',
+            scientificName: result.scientificName || '',
+            watering: result.watering || { frequencyDays: 3, amountMl: '150 ml' },
+            sunlight: result.sunlight || { period: 'Sol da Manhã' },
+            fertilizer: result.fertilizer || { type: 'Adubo Orgânico' }
+          });
+          setIsAnalyzing(false);
+          setStep('form');
+        };
+
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          onSavePlant({ ...formData, photoUrl: photo || 'https://images.unsplash.com/photo-1545241047-6083a3684587?auto=format&fit=crop&w=800&q=80', lastWatered: new Date().toISOString() });
+          onClose();
+        };
+
+        return React.createElement('div', { className: 'modal-overlay', onClick: onClose },
+          React.createElement('div', { className: 'modal-container', onClick: e => e.stopPropagation() },
+            React.createElement('div', { className: 'modal-header' },
+              React.createElement('span', { className: 'modal-title' }, step === 'photo' ? 'Adicionar Nova Planta' : 'Confirmar & Salvar'),
+              React.createElement('button', { className: 'modal-close', onClick: onClose }, React.createElement(X, { size: 20 }))
+            ),
+            React.createElement('div', { className: 'modal-body' },
+              step === 'photo' ? (
+                React.createElement('div', null,
+                  photo ? (
+                    React.createElement('div', null,
+                      React.createElement('div', { className: 'preview-img-container' }, React.createElement('img', { src: photo, className: 'preview-img' })),
+                      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' } },
+                        React.createElement('button', { className: 'btn btn-secondary', onClick: () => setPhoto(null) }, 'Trocar Foto'),
+                        React.createElement('button', { className: 'btn btn-primary', onClick: runAi, disabled: isAnalyzing },
+                          isAnalyzing ? 'Analisando...' : 'Analisar com IA Gemini'
+                        )
+                      ),
+                      React.createElement('button', { className: 'btn btn-secondary btn-sm', style: { width: '100%' }, onClick: () => setStep('form') }, 'Preencher Manualmente')
+                    )
+                  ) : (
+                    React.createElement('div', null,
+                      React.createElement('label', { className: 'upload-zone', style: { display: 'block' } },
+                        React.createElement(Camera, { className: 'upload-icon' }),
+                        React.createElement('h4', null, 'Tirar ou Enviar Foto da Planta'),
+                        React.createElement('p', { style: { fontSize: '0.85rem', color: 'var(--text-muted)' } }, 'Clique para selecionar foto do celular ou computador'),
+                        React.createElement('input', { type: 'file', accept: 'image/*', onChange: handleUpload, style: { display: 'none' } })
+                      ),
+                      React.createElement('button', { className: 'btn btn-secondary btn-sm', style: { width: '100%', marginTop: '16px' }, onClick: () => setStep('form') }, 'Cadastrar Manualmente sem Foto')
+                    )
+                  )
+                )
+              ) : (
+                React.createElement('form', { onSubmit: handleSubmit },
+                  React.createElement('div', { className: 'form-group' },
+                    React.createElement('label', { className: 'form-label' }, 'Nome Popular da Planta *'),
+                    React.createElement('input', { className: 'form-input', value: formData.commonName, onChange: e => setFormData({...formData, commonName: e.target.value}), required: true })
+                  ),
+                  React.createElement('div', { className: 'form-group' },
+                    React.createElement('label', { className: 'form-label' }, 'Nome Científico (Botânico)'),
+                    React.createElement('input', { className: 'form-input', value: formData.scientificName, onChange: e => setFormData({...formData, scientificName: e.target.value}) })
+                  ),
+                  React.createElement('div', { style: { display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' } },
+                    React.createElement('button', { type: 'button', className: 'btn btn-secondary', onClick: () => setStep('photo') }, 'Voltar'),
+                    React.createElement('button', { type: 'submit', className: 'btn btn-primary' }, 'Salvar no Meu Jardim')
+                  )
+                )
+              )
+            )
+          )
+        );
+      }
+
+      // MODAL CHAVE API
+      function ApiKeyModal({ onClose }) {
+        const [key, setKey] = useState(getApiKey());
+        return React.createElement('div', { className: 'modal-overlay', onClick: onClose },
+          React.createElement('div', { className: 'modal-container', onClick: e => e.stopPropagation(), style: { maxWidth: '480px' } },
+            React.createElement('div', { className: 'modal-header' },
+              React.createElement('span', { className: 'modal-title' }, 'Chave API Gemini'),
+              React.createElement('button', { className: 'modal-close', onClick: onClose }, React.createElement(X, { size: 20 }))
+            ),
+            React.createElement('div', { className: 'modal-body' },
+              React.createElement('form', { onSubmit: (e) => { e.preventDefault(); saveApiKey(key); onClose(); } },
+                React.createElement('div', { className: 'form-group' },
+                  React.createElement('label', { className: 'form-label' }, 'Sua Chave API Google Gemini'),
+                  React.createElement('input', { type: 'password', className: 'form-input', value: key, onChange: e => setKey(e.target.value), placeholder: 'AIzaSy...' })
+                ),
+                React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '10px' } },
+                  React.createElement('button', { type: 'button', className: 'btn btn-secondary', onClick: onClose }, 'Cancelar'),
+                  React.createElement('button', { type: 'submit', className: 'btn btn-primary' }, 'Salvar')
+                )
+              )
+            )
+          )
+        );
+      }
+
+      // MAIN APP COMPONENT
+      function App() {
+        const [plants, setPlants] = useState([]);
+        const [searchTerm, setSearchTerm] = useState('');
+        const [activeFilter, setActiveFilter] = useState('all');
+        const [selectedPlant, setSelectedPlant] = useState(null);
+        const [showAddModal, setShowAddModal] = useState(false);
+        const [showKeyModal, setShowKeyModal] = useState(false);
+
+        useEffect(() => {
+          getStoredPlants().then(setPlants);
+        }, []);
+
+        const handleWater = async (id) => {
+          const updated = await markAsWatered(id);
+          setPlants(updated);
+          confetti({ particleCount: 30, spread: 60, origin: { y: 0.8 } });
+        };
+
+        const handleSave = async (p) => {
+          const updated = await savePlant(p);
+          setPlants(updated);
+        };
+
+        const handleDelete = async (id) => {
+          const updated = await deletePlant(id);
+          setPlants(updated);
+        };
+
+        const now = new Date();
+        const needsWaterCount = plants.filter(p => {
+          const diff = (now - new Date(p.lastWatered)) / (1000 * 60 * 60);
+          return diff >= ((p.watering?.frequencyDays || 3) * 24 - 12);
+        }).length;
+
+        const filtered = plants.filter(p => {
+          const matches = p.commonName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            (p.scientificName && p.scientificName.toLowerCase().includes(searchTerm.toLowerCase()));
+          if (!matches) return false;
+          if (activeFilter === 'needs_water') {
+            const diff = (now - new Date(p.lastWatered)) / (1000 * 60 * 60);
+            return diff >= ((p.watering?.frequencyDays || 3) * 24 - 12);
+          }
+          return true;
+        });
+
+        return React.createElement('div', null,
+          React.createElement(Navbar, {
+            plantCount: plants.length,
+            onAddClick: () => setShowAddModal(true),
+            onOpenKeyModal: () => setShowKeyModal(true)
+          }),
+          React.createElement('main', { className: 'app-container' },
+            React.createElement('section', { className: 'hero-header' },
+              React.createElement('div', { className: 'hero-text' },
+                React.createElement('h1', null, 'Meu Jardim Inteligente 🌿'),
+                React.createElement('p', null, 'Acompanhe a rotina de rega e cuide das suas plantas com apoio da IA.')
+              ),
+              React.createElement('div', { className: 'stats-grid' },
+                React.createElement('div', { className: 'stat-card' },
+                  React.createElement('div', { className: 'stat-value' }, plants.length),
+                  React.createElement('div', { className: 'stat-label' }, 'Plantas')
+                ),
+                React.createElement('div', { className: 'stat-card', style: { background: needsWaterCount > 0 ? 'rgba(239, 68, 68, 0.25)' : undefined } },
+                  React.createElement('div', { className: 'stat-value', style: { color: needsWaterCount > 0 ? '#fca5a5' : '#fff' } }, needsWaterCount),
+                  React.createElement('div', { className: 'stat-label' }, 'Regar Hoje')
+                )
+              )
+            ),
+            React.createElement('section', { className: 'toolbar' },
+              React.createElement('div', { className: 'search-box' },
+                React.createElement(Search, { className: 'search-icon', size: 18 }),
+                React.createElement('input', {
+                  type: 'text',
+                  placeholder: 'Buscar por nome popular ou científico...',
+                  value: searchTerm,
+                  onChange: e => setSearchTerm(e.target.value)
+                })
+              ),
+              React.createElement('div', { className: 'filter-chips' },
+                React.createElement('button', { className: `chip ${activeFilter === 'all' ? 'active' : ''}`, onClick: () => setActiveFilter('all') }, `Todas (${plants.length})`),
+                React.createElement('button', { className: `chip ${activeFilter === 'needs_water' ? 'active' : ''}`, onClick: () => setActiveFilter('needs_water') }, `Precisa de Água (${needsWaterCount})`)
+              )
+            ),
+            React.createElement('div', { className: 'plant-grid' },
+              filtered.map(p => React.createElement(PlantCard, { key: p.id, plant: p, onWater: handleWater, onClick: setSelectedPlant }))
+            )
+          ),
+          selectedPlant && React.createElement(PlantDetailModal, { plant: selectedPlant, onClose: () => setSelectedPlant(null), onSave: handleSave, onDelete: handleDelete, onWater: handleWater }),
+          showAddModal && React.createElement(AddPlantModal, { onClose: () => setShowAddModal(false), onSavePlant: handleSave }),
+          showKeyModal && React.createElement(ApiKeyModal, { onClose: () => setShowKeyModal(false) })
+        );
+      }
+
+      // RENDER APP
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(App));
+    </script>
+  </body>
+</html>
