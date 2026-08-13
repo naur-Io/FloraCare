@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { X, Camera, Upload, Sparkles, Edit3, Check, Loader2, Image as ImageIcon } from 'lucide-react';
+import { X, Camera, Upload, Sparkles, Edit3, Check, Loader2, Image as ImageIcon, Info } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import { analyzePlantImage } from '../services/geminiService';
 import { getStoredApiKey } from '../services/storageService';
 
-export default function AddPlantModal({ onClose, onSavePlant }) {
+export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, hasApiKey }) {
   const [photo, setPhoto] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -113,6 +113,39 @@ export default function AddPlantModal({ onClose, onSavePlant }) {
           <div className="modal-body">
             {step === 'choose_photo' ? (
               <div>
+                {/* Banner Informativo sobre Modo IA vs Simulação */}
+                {hasApiKey ? (
+                  <div className="ai-mode-banner active">
+                    <Sparkles size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <strong>IA Gemini 1.5 Flash Conectada</strong>
+                      <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>
+                        Sua foto será analisada em tempo real pela IA multimodal do Google.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="ai-mode-banner simulated">
+                    <Info size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <strong>Modo de Simulação Botânica</strong>
+                      <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>
+                        Sem chave informada, demonstraremos com catálogo botânico real.{' '}
+                        <button 
+                          type="button" 
+                          className="inline-link-btn" 
+                          onClick={() => {
+                            onClose();
+                            onOpenKeyModal?.();
+                          }}
+                        >
+                          Adicionar Chave Gemini Grátis
+                        </button>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Visualizador de Foto Selecionada */}
                 {photo ? (
                   <div>

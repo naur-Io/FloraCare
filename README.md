@@ -49,6 +49,8 @@ FloraCare was built to solve the real challenge of managing diverse plant specie
 
 ## 📜 Changelog
 
+See the full [CHANGELOG.md](CHANGELOG.md) for detailed release history.
+
 ### [v1.0.0] - 2026-08-13
 - ✨ **Initial Release**: Full implementation of FloraCare web app.
 - 📸 **Camera & Storage**: Integrated native browser camera capture and IndexedDB photo persistence.

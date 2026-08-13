@@ -3,6 +3,45 @@
  * e IA Simulada de Alta Precisão (Fallback para testes sem chave).
  */
 
+/**
+ * Valida se uma chave da API do Google Gemini é autêntica e está ativa
+ */
+export async function validateGeminiApiKey(apiKey) {
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('Por favor, digite ou cole a sua chave de API.');
+  }
+
+  const cleanKey = apiKey.trim();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      if (res.status === 400 || res.status === 403 || res.status === 401) {
+        throw new Error('Chave de API inválida ou não autorizada pelo Google AI Studio.');
+      }
+      throw new Error(`Erro ao validar chave junto ao Google AI (Código ${res.status}).`);
+    }
+
+    const data = await res.json();
+    if (data && data.models) {
+      return { 
+        valid: true, 
+        message: 'Chave API válida e conectada com sucesso ao Gemini 1.5 Flash!' 
+      };
+    }
+    return { 
+      valid: true, 
+      message: 'Chave API validada com sucesso e pronta para uso!' 
+    };
+  } catch (err) {
+    if (err.message && err.message.includes('inválida')) {
+      throw err;
+    }
+    throw new Error('Não foi possível validar a chave. Verifique se a chave está completa ou sua conexão.');
+  }
+}
+
 export async function analyzePlantImage(base64Image, apiKey) {
   // Limpar prefixo data:image/...;base64, se existir
   const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');

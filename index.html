@@ -240,24 +240,38 @@
       // --- 4. COMPONENTES REACT ---
       
       // NAVBAR
-      function Navbar({ plantCount, onAddClick, onOpenKeyModal }) {
+      function Navbar({ hasApiKey, onAddClick, onOpenKeyModal }) {
         return React.createElement('header', { className: 'navbar' },
           React.createElement('div', { className: 'app-container navbar-content' },
             React.createElement('div', { className: 'brand' },
-              React.createElement('div', { className: 'brand-icon' }, React.createElement(Leaf, { size: 22 })),
-              React.createElement('div', null,
+              React.createElement('div', { className: 'brand-icon' }, React.createElement(Leaf, { size: 20 })),
+              React.createElement('div', { className: 'brand-info' },
                 React.createElement('span', { className: 'brand-title' }, 'FloraCare'),
                 React.createElement('span', { className: 'brand-subtitle' }, 'IA Botânica & Guia')
               )
             ),
             React.createElement('div', { className: 'nav-actions' },
-              React.createElement('button', { className: 'btn btn-secondary btn-sm', onClick: onOpenKeyModal },
-                React.createElement(Key, { size: 16 }),
-                React.createElement('span', null, 'API Gemini')
+              React.createElement('button', { 
+                className: `btn ${hasApiKey ? 'btn-key-active' : 'btn-secondary'} btn-sm nav-btn-key`, 
+                onClick: onOpenKeyModal,
+                title: hasApiKey ? "Chave API Gemini Conectada" : "Modo Simulação Ativo"
+              },
+                hasApiKey ? [
+                  React.createElement('span', { key: 'dot', className: 'status-dot online' }),
+                  React.createElement(Sparkles, { key: 'ico', size: 14 }),
+                  React.createElement('span', { key: 'txt-f', className: 'nav-btn-text-full' }, 'IA Gemini Conectada'),
+                  React.createElement('span', { key: 'txt-s', className: 'nav-btn-text-short' }, 'IA Gemini')
+                ] : [
+                  React.createElement('span', { key: 'dot', className: 'status-dot demo' }),
+                  React.createElement(Key, { key: 'ico', size: 14 }),
+                  React.createElement('span', { key: 'txt-f', className: 'nav-btn-text-full' }, 'Modo Simulado'),
+                  React.createElement('span', { key: 'txt-s', className: 'nav-btn-text-short' }, 'Simulado')
+                ]
               ),
-              React.createElement('button', { className: 'btn btn-primary', onClick: onAddClick },
-                React.createElement(Plus, { size: 18 }),
-                React.createElement('span', null, 'Nova Planta')
+              React.createElement('button', { className: 'btn btn-primary btn-sm nav-btn-add', onClick: onAddClick },
+                React.createElement(Plus, { size: 16 }),
+                React.createElement('span', { className: 'nav-btn-text-full' }, 'Nova Planta'),
+                React.createElement('span', { className: 'nav-btn-text-short' }, 'Adicionar')
               )
             )
           )
@@ -513,23 +527,114 @@
       }
 
       // MODAL CHAVE API
-      function ApiKeyModal({ onClose }) {
+      function ApiKeyModal({ onClose, onKeySaved }) {
         const [key, setKey] = useState(getApiKey());
+        const [showPassword, setShowPassword] = useState(false);
+        const [isValidating, setIsValidating] = useState(false);
+        const [feedback, setFeedback] = useState(null);
+
+        useEffect(() => {
+          const current = getApiKey();
+          if (current) {
+            setFeedback({ type: 'success', message: 'Chave API configurada e ativa no seu navegador.' });
+          }
+        }, []);
+
+        const handleValidateAndSave = async (e) => {
+          e.preventDefault();
+          const trimmed = key.trim();
+          if (!trimmed) {
+            saveApiKey('');
+            setKey('');
+            onKeySaved?.(false);
+            onClose();
+            return;
+          }
+
+          setIsValidating(true);
+          setFeedback(null);
+          try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmed}`);
+            if (!res.ok) {
+              throw new Error('Chave de API inválida ou não autorizada pelo Google AI Studio.');
+            }
+            saveApiKey(trimmed);
+            setFeedback({ type: 'success', message: 'Chave válida! Conectada com sucesso ao Gemini 1.5 Flash e pronta para uso.' });
+            onKeySaved?.(true);
+            setTimeout(() => onClose(), 1600);
+          } catch(err) {
+            setFeedback({ type: 'error', message: err.message || 'Chave inválida. Verifique os dados no Google AI Studio.' });
+          } finally {
+            setIsValidating(false);
+          }
+        };
+
+        const handleRemove = () => {
+          saveApiKey('');
+          setKey('');
+          onKeySaved?.(false);
+          setFeedback({ type: 'success', message: 'Chave removida. Modo Simulação reativado.' });
+          setTimeout(() => onClose(), 1000);
+        };
+
         return React.createElement('div', { className: 'modal-overlay', onClick: onClose },
-          React.createElement('div', { className: 'modal-container', onClick: e => e.stopPropagation(), style: { maxWidth: '480px' } },
+          React.createElement('div', { className: 'modal-container', onClick: e => e.stopPropagation(), style: { maxWidth: '500px' } },
             React.createElement('div', { className: 'modal-header' },
-              React.createElement('span', { className: 'modal-title' }, 'Chave API Gemini'),
+              React.createElement('span', { className: 'modal-title', style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+                React.createElement(Key, { size: 18, color: 'var(--primary-600)' }),
+                'Configurar Chave API Gemini'
+              ),
               React.createElement('button', { className: 'modal-close', onClick: onClose }, React.createElement(X, { size: 20 }))
             ),
             React.createElement('div', { className: 'modal-body' },
-              React.createElement('form', { onSubmit: (e) => { e.preventDefault(); saveApiKey(key); onClose(); } },
+              React.createElement('p', { style: { fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '14px' } },
+                'Insira sua chave do Google AI Studio para análise em tempo real com o Gemini 1.5 Flash.'
+              ),
+              React.createElement('form', { onSubmit: handleValidateAndSave },
                 React.createElement('div', { className: 'form-group' },
-                  React.createElement('label', { className: 'form-label' }, 'Sua Chave API Google Gemini'),
-                  React.createElement('input', { type: 'password', className: 'form-input', value: key, onChange: e => setKey(e.target.value), placeholder: 'AIzaSy...' })
+                  React.createElement('label', { className: 'form-label', style: { display: 'flex', justifyContent: 'space-between' } },
+                    React.createElement('span', null, 'Chave de API Gemini'),
+                    React.createElement('a', { href: 'https://aistudio.google.com/app/apikey', target: '_blank', rel: 'noreferrer', style: { fontSize: '0.78rem', color: 'var(--primary-700)', fontWeight: '600' } }, 'Obter grátis ↗')
+                  ),
+                  React.createElement('div', { style: { position: 'relative' } },
+                    React.createElement('input', {
+                      type: showPassword ? 'text' : 'password',
+                      className: 'form-input',
+                      value: key,
+                      onChange: e => setKey(e.target.value),
+                      placeholder: 'AIzaSy...',
+                      style: { paddingRight: '40px' }
+                    }),
+                    React.createElement('button', {
+                      type: 'button',
+                      onClick: () => setShowPassword(!showPassword),
+                      style: { position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }
+                    }, showPassword ? '🙈' : '👁️')
+                  )
                 ),
-                React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '10px' } },
-                  React.createElement('button', { type: 'button', className: 'btn btn-secondary', onClick: onClose }, 'Cancelar'),
-                  React.createElement('button', { type: 'submit', className: 'btn btn-primary' }, 'Salvar')
+                feedback && React.createElement('div', {
+                  style: {
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.825rem',
+                    marginBottom: '14px',
+                    background: feedback.type === 'success' ? '#ecfdf5' : '#fef2f2',
+                    border: `1px solid ${feedback.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
+                    color: feedback.type === 'success' ? '#065f46' : '#991b1b'
+                  }
+                },
+                  React.createElement('strong', { style: { display: 'block', marginBottom: '2px' } }, feedback.type === 'success' ? '✅ Chave Válida & Pronta para Uso' : '❌ Falha na Validação'),
+                  feedback.message
+                ),
+                React.createElement('div', { style: { background: 'var(--primary-50)', padding: '10px 12px', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', color: 'var(--text-main)', marginBottom: '16px' } },
+                  '🔒 Sua chave é salva exclusivamente no seu navegador. Sem chave, o app funciona no Modo Simulado.'
+                ),
+                React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' } },
+                  getApiKey() && React.createElement('button', { type: 'button', className: 'btn btn-secondary', onClick: handleRemove, style: { color: 'var(--accent-danger)' }, disabled: isValidating }, 'Remover'),
+                  React.createElement('button', { type: 'button', className: 'btn btn-secondary', onClick: onClose, disabled: isValidating }, 'Cancelar'),
+                  React.createElement('button', { type: 'submit', className: 'btn btn-primary', disabled: isValidating },
+                    isValidating ? 'Validando...' : (feedback?.type === 'success' ? 'Chave Pronta!' : 'Validar & Salvar')
+                  )
                 )
               )
             )
@@ -545,9 +650,11 @@
         const [selectedPlant, setSelectedPlant] = useState(null);
         const [showAddModal, setShowAddModal] = useState(false);
         const [showKeyModal, setShowKeyModal] = useState(false);
+        const [hasApiKey, setHasApiKey] = useState(Boolean(getApiKey()));
 
         useEffect(() => {
           getStoredPlants().then(setPlants);
+          setHasApiKey(Boolean(getApiKey()));
         }, []);
 
         const handleWater = async (id) => {
@@ -585,7 +692,7 @@
 
         return React.createElement('div', null,
           React.createElement(Navbar, {
-            plantCount: plants.length,
+            hasApiKey: hasApiKey,
             onAddClick: () => setShowAddModal(true),
             onOpenKeyModal: () => setShowKeyModal(true)
           }),
@@ -627,7 +734,7 @@
           ),
           selectedPlant && React.createElement(PlantDetailModal, { plant: selectedPlant, onClose: () => setSelectedPlant(null), onSave: handleSave, onDelete: handleDelete, onWater: handleWater }),
           showAddModal && React.createElement(AddPlantModal, { onClose: () => setShowAddModal(false), onSavePlant: handleSave }),
-          showKeyModal && React.createElement(ApiKeyModal, { onClose: () => setShowKeyModal(false) })
+          showKeyModal && React.createElement(ApiKeyModal, { onClose: () => setShowKeyModal(false), onKeySaved: (hasKey) => setHasApiKey(hasKey) })
         );
       }
 

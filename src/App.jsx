@@ -7,7 +7,7 @@ import PlantDetailModal from './components/PlantDetailModal';
 import AddPlantModal from './components/AddPlantModal';
 import ApiKeyModal from './components/ApiKeyModal';
 
-import { getStoredPlants, savePlant, deletePlant, markAsWatered } from './services/storageService';
+import { getStoredPlants, savePlant, deletePlant, markAsWatered, getStoredApiKey } from './services/storageService';
 
 export default function App() {
   const [plants, setPlants] = useState([]);
@@ -17,9 +17,11 @@ export default function App() {
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
 
   useEffect(() => {
     loadPlants();
+    setHasApiKey(Boolean(getStoredApiKey() && getStoredApiKey().trim() !== ''));
   }, []);
 
   const loadPlants = async () => {
@@ -102,11 +104,10 @@ export default function App() {
   return (
     <div>
       <Navbar 
+        hasApiKey={hasApiKey}
         plantCount={totalCount}
         onAddClick={() => setShowAddModal(true)}
         onOpenKeyModal={() => setShowKeyModal(true)}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
       />
 
       <main className="app-container">
@@ -215,14 +216,17 @@ export default function App() {
 
       {showAddModal && (
         <AddPlantModal 
+          hasApiKey={hasApiKey}
           onClose={() => setShowAddModal(false)}
           onSavePlant={handleSavePlant}
+          onOpenKeyModal={() => setShowKeyModal(true)}
         />
       )}
 
       {showKeyModal && (
         <ApiKeyModal 
           onClose={() => setShowKeyModal(false)}
+          onKeySaved={(hasKey) => setHasApiKey(hasKey)}
         />
       )}
     </div>
