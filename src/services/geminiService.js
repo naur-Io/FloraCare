@@ -44,50 +44,67 @@ export async function validateGeminiApiKey(apiKey) {
 
 /**
  * Normaliza e comprime qualquer imagem (HEIC, PNG, WebP, JPEG de alta resolução)
- * para JPEG otimizado a 1280px, ideal para envio à API de Visão do Gemini.
+ * para JPEG otimizado a 1024px, ideal para envio à API de Visão do Gemini.
  */
 export async function normalizeImageForAi(imageInput) {
   if (!imageInput) return null;
 
+  // Se já for base64 puro sem prefixo data:
+  if (!imageInput.startsWith('data:')) {
+    return {
+      dataUrl: `data:image/jpeg;base64,${imageInput}`,
+      base64: imageInput.trim(),
+      mimeType: 'image/jpeg'
+    };
+  }
+
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // NÃO usar crossOrigin em data URLs (evita falha silenciosa no iOS Safari)
     img.onload = () => {
-      const maxDim = 1280;
-      let width = img.width;
-      let height = img.height;
+      try {
+        const maxDim = 1024;
+        let width = img.width;
+        let height = img.height;
 
-      if (width > maxDim || height > maxDim) {
-        if (width > height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
         }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const cleanBase64 = jpegDataUrl.split(';base64,')[1] || '';
+        resolve({
+          dataUrl: jpegDataUrl,
+          base64: cleanBase64.trim(),
+          mimeType: 'image/jpeg'
+        });
+      } catch (err) {
+        const clean = imageInput.split(';base64,')[1] || imageInput;
+        resolve({
+          dataUrl: imageInput,
+          base64: clean.trim(),
+          mimeType: 'image/jpeg'
+        });
       }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      const cleanBase64 = jpegDataUrl.split(',')[1] || '';
-      resolve({
-        dataUrl: jpegDataUrl,
-        base64: cleanBase64,
-        mimeType: 'image/jpeg'
-      });
     };
 
     img.onerror = () => {
-      // Fallback caso não consiga renderizar no canvas
-      const rawClean = imageInput.replace(/^data:image\/[a-zA-Z0-9\+\-\.]+;base64,/, '');
+      const clean = imageInput.split(';base64,')[1] || imageInput;
       resolve({
         dataUrl: imageInput,
-        base64: rawClean,
+        base64: clean.trim(),
         mimeType: 'image/jpeg'
       });
     };
@@ -99,7 +116,7 @@ export async function normalizeImageForAi(imageInput) {
 export async function analyzePlantImage(base64Image, apiKey) {
   // Normalizar e comprimir a imagem antes de qualquer envio
   const normalized = await normalizeImageForAi(base64Image);
-  const cleanBase64 = normalized ? normalized.base64 : base64Image.replace(/^data:image\/[a-zA-Z0-9\+\-\.]+;base64,/, '');
+  const cleanBase64 = normalized ? normalized.base64 : (base64Image.split(';base64,')[1] || base64Image).trim();
 
   if (apiKey && apiKey.trim() !== '') {
     // Quando houver chave, usar a API real do Gemini e NÃO mascarar erros silenciosamente
@@ -111,9 +128,38 @@ export async function analyzePlantImage(base64Image, apiKey) {
   }
 }
 
+// Descobre dinamicamente os modelos disponíveis para esta chave de API
+async function getVisionModels(apiKey) {
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.models)) {
+        const available = data.models
+          .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+          .map(m => m.name.replace(/^models\//, ''));
+        
+        // Priorizar modelos mais rápidos e adequados para visão
+        const priority = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro'];
+        const sorted = [];
+        for (const p of priority) {
+          if (available.includes(p)) sorted.push(p);
+        }
+        for (const a of available) {
+          if (!sorted.includes(a) && (a.includes('flash') || a.includes('pro'))) sorted.push(a);
+        }
+        if (sorted.length > 0) return sorted;
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao consultar lista de modelos do Google AI:', e);
+  }
+  // Fallback padrão se a listagem falhar
+  return ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+}
+
 async function fetchGeminiVisionApi(base64Data, apiKey) {
-  // Modelos suportados na API v1beta do Google AI Studio
-  const models = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+  const models = await getVisionModels(apiKey);
   let lastError = null;
 
   const prompt = `Você é um botânico especialista e taxonomista vegetal de renome, com precisão idêntica ao identificador botânico do Apple Fotos e PlantNet.
@@ -164,6 +210,7 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
         body: JSON.stringify({
           contents: [
             {
+              role: 'user',
               parts: [
                 { text: prompt },
                 {
@@ -176,15 +223,15 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
             }
           ],
           generationConfig: {
-            temperature: 0.1,
-            responseMimeType: 'application/json'
+            temperature: 0.1
           }
         })
       });
 
       if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`API Gemini (${model} - HTTP ${response.status}): ${errText}`);
+        const errJson = await response.json().catch(() => ({}));
+        const message = errJson.error?.message || `HTTP ${response.status}`;
+        throw new Error(`Modelo ${model}: ${message}`);
       }
 
       const jsonResponse = await response.json();
@@ -198,8 +245,11 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
       try {
         return JSON.parse(textOutput);
       } catch (e) {
-        const cleaned = textOutput.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        return JSON.parse(cleaned);
+        const jsonMatch = textOutput.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+        throw new Error('Formato de resposta inesperado da IA.');
       }
     } catch (err) {
       lastError = err;
