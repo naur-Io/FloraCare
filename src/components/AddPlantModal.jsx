@@ -69,7 +69,7 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
 
       setStep('form');
     } catch (err) {
-      alert('Não foi possível analisar a imagem. Você pode preencher as informações manualmente!');
+      alert(`Não foi possível analisar a foto com a IA Gemini:\n${err.message || 'Verifique sua conexão ou a chave de API.'}\n\nVocê pode cadastrar ou preencher as informações manualmente.`);
       setStep('form');
     } finally {
       setIsAnalyzing(false);

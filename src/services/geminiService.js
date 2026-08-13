@@ -42,101 +42,170 @@ export async function validateGeminiApiKey(apiKey) {
   }
 }
 
+/**
+ * Normaliza e comprime qualquer imagem (HEIC, PNG, WebP, JPEG de alta resolução)
+ * para JPEG otimizado a 1280px, ideal para envio à API de Visão do Gemini.
+ */
+export async function normalizeImageForAi(imageInput) {
+  if (!imageInput) return null;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const maxDim = 1280;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const cleanBase64 = jpegDataUrl.split(',')[1] || '';
+      resolve({
+        dataUrl: jpegDataUrl,
+        base64: cleanBase64,
+        mimeType: 'image/jpeg'
+      });
+    };
+
+    img.onerror = () => {
+      // Fallback caso não consiga renderizar no canvas
+      const rawClean = imageInput.replace(/^data:image\/[a-zA-Z0-9\+\-\.]+;base64,/, '');
+      resolve({
+        dataUrl: imageInput,
+        base64: rawClean,
+        mimeType: 'image/jpeg'
+      });
+    };
+
+    img.src = imageInput;
+  });
+}
+
 export async function analyzePlantImage(base64Image, apiKey) {
-  // Limpar prefixo data:image/...;base64, se existir
-  const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
+  // Normalizar e comprimir a imagem antes de qualquer envio
+  const normalized = await normalizeImageForAi(base64Image);
+  const cleanBase64 = normalized ? normalized.base64 : base64Image.replace(/^data:image\/[a-zA-Z0-9\+\-\.]+;base64,/, '');
 
   if (apiKey && apiKey.trim() !== '') {
-    try {
-      return await fetchGeminiVisionApi(cleanBase64, apiKey.trim());
-    } catch (error) {
-      console.warn('Falha na chamada da API Gemini, recorrendo à simulação com IA:', error);
-      return simulateSmartAiAnalysis(cleanBase64);
-    }
+    // Quando houver chave, usar a API real do Gemini e NÃO mascarar erros silenciosamente
+    return await fetchGeminiVisionApi(cleanBase64, apiKey.trim());
   } else {
-    // Sem chave inserida: usar modo simulado instantâneo com delay realista
-    await new Promise(r => setTimeout(r, 2200));
-    return simulateSmartAiAnalysis(cleanBase64);
+    // Sem chave inserida: usar modo simulado com delay realista
+    await new Promise(r => setTimeout(r, 1800));
+    return simulateSmartAiAnalysis();
   }
 }
 
 async function fetchGeminiVisionApi(base64Data, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest'];
+  let lastError = null;
 
-  const prompt = `Você é um botânico especialista e engenheiro agronômico. Analise esta imagem da planta e retorne ESTRITAMENTE um JSON válido com os seguintes campos em português do Brasil:
+  const prompt = `Você é um botânico especialista e taxonomista vegetal com nível de precisão de reconhecimento botânico igual ou superior ao Apple Fotos e PlantNet.
+Sua missão é analisar meticulosamente a fotografia desta planta e identificar a sua espécie exata com base em suas características visuais visíveis.
 
+Orientações botânicas:
+1. Examine com atenção: formato da folha (cordiforme, lanceolada, oval, lobada, pinada), bordas (lisas, denteadas, onduladas), nervuras, disposição dos ramos, tonalidade de verde ou variegação, textura (cerosa, suculenta, aveludada), presença de espinhos, flores ou frutos.
+2. Identifique o Nome Popular mais difundido em português do Brasil e o Nome Científico binomial (Gênero e espécie).
+3. IMPORTANTE: Identifique a espécie que realmente está na foto. NÃO padronize para espécies comuns como Manjericão a menos que a planta seja efetivamente Manjericão (Ocimum basilicum).
+4. Avalie o estado de saúde visível da planta (ex: Saudável, Solo Seco, Folhas Queimadas, Pragas, etc.).
+5. Defina a rotina botânica ideal para esta espécie específica (volume e frequência de rega, necessidade de luz, tipo de adubo e dicas de manejo).
+
+Retorne ESTRITAMENTE um JSON puro sem markdown ou texto extra, no seguinte formato:
 {
-  "commonName": "Nome popular mais comum da planta",
-  "scientificName": "Nome científico (Genêro e espécie em latim)",
-  "plantType": "Diurna / Noturna / Manhã / Sol Pleno / Meia Sombra",
-  "healthStatus": "Saudável ou Diagnóstico (ex: Falta de água, Folhas Amareladas, Pragas)",
+  "commonName": "Nome Popular em Português",
+  "scientificName": "Nome Científico (em Latim)",
+  "plantType": "Ex: Diurna / Sol da Manhã / Meia Sombra / Sombra / Sol Pleno",
+  "healthStatus": "Ex: Saudável & Vistosa ou Diagnóstico específico",
   "watering": {
-    "frequencyDays": 3, // número inteiro de dias entre regas
-    "amountMl": "ex: 150 - 200 ml",
-    "description": "Explicação detalhada sobre quando e como regar"
+    "frequencyDays": 3,
+    "amountMl": "ex: 150 - 250 ml",
+    "description": "Como e quando regar esta espécie"
   },
   "sunlight": {
-    "period": "Manhã, Tarde ou Luz Indireta",
+    "period": "Ex: Sol da Manhã / Luz Indireta Abundante / Sol Pleno",
     "hoursPerDay": "ex: 4 a 6 horas",
-    "habits": "Detalhes sobre a tolerância ao sol e hábito diurno/noturno"
+    "habits": "Tolerância solar e hábitos de luz"
   },
   "fertilizer": {
-    "type": "Adubo recomendado ex: NPK 10-10-10, Húmus de Minhoca ou Bokashi",
-    "frequency": "ex: A cada 30 dias na Primavera",
-    "notes": "Instruções específicas de aplicação"
+    "type": "Ex: NPK 10-10-10, Húmus de Minhoca, Bokashi ou Torta de Mamona",
+    "frequency": "ex: A cada 30 dias na Primavera/Verão",
+    "notes": "Modo de aplicação"
   },
   "careTips": [
-    "Dica prática de poda, limpeza ou substrato 1",
-    "Dica 2 (toxicidade para pets ou umidade)"
+    "Dica prática de cultivo ou poda 1",
+    "Dica sobre umidade, toxicidade ou substrato 2"
   ]
-}
+}`;
 
-Responda APENAS o JSON puro sem textos explicativos adicionais antes ou depois.`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: prompt },
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
             {
-              inline_data: {
-                mime_type: 'image/jpeg',
-                data: base64Data
-              }
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: 'image/jpeg',
+                    data: base64Data
+                  }
+                }
+              ]
             }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        response_mime_type: 'application/json'
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            response_mime_type: 'application/json'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`API Gemini (${model} - HTTP ${response.status}): ${errText}`);
       }
-    })
-  });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Erro na API Gemini (${response.status}): ${errText}`);
+      const jsonResponse = await response.json();
+      const textOutput = jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!textOutput) {
+        throw new Error('Nenhuma resposta de texto retornada pelo Gemini.');
+      }
+
+      // Tentar parsear o JSON retornado
+      try {
+        return JSON.parse(textOutput);
+      } catch (e) {
+        const cleaned = textOutput.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        return JSON.parse(cleaned);
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`Tentativa com modelo ${model} falhou:`, err.message);
+      // Tentar próximo modelo se for erro de modelo não encontrado
+    }
   }
 
-  const jsonResponse = await response.json();
-  const textOutput = jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!textOutput) {
-    throw new Error('Nenhuma resposta de texto retornada pelo Gemini.');
-  }
-
-  // Tentar parsear o JSON retornado
-  try {
-    return JSON.parse(textOutput);
-  } catch (e) {
-    // Remover blocos de marcação ```json se presentes
-    const cleaned = textOutput.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned);
-  }
+  throw lastError || new Error('Não foi possível identificar a planta com a API Gemini.');
 }
 
 // IA Simulada Inteligente com catálogos botânicos reais

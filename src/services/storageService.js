@@ -3,24 +3,63 @@ import { INITIAL_PLANTS } from './mockData';
 
 const PLANTS_STORAGE_KEY = 'floracare_user_plants_v1';
 const API_KEY_STORAGE_KEY = 'floracare_gemini_api_key';
+const INITIALIZED_FLAG_KEY = 'floracare_has_initialized_v1';
 
-// Carregar todas as plantas (com fallback para plantas iniciais se vazio)
-export async function getStoredPlants() {
+// Sincroniza dados em ambos os armazenamentos (IndexedDB + LocalStorage)
+async function persistToAllStorages(plants) {
+  // 1. Salvar no IndexedDB
   try {
-    const data = await get(PLANTS_STORAGE_KEY);
-    if (data && Array.isArray(data) && data.length > 0) {
-      return data;
-    }
-    // Salvar mock inicial se for o primeiro acesso
-    await set(PLANTS_STORAGE_KEY, INITIAL_PLANTS);
-    return INITIAL_PLANTS;
-  } catch (error) {
-    console.error('Erro ao ler do IndexedDB, usando localStorage fallback:', error);
-    const localData = localStorage.getItem(PLANTS_STORAGE_KEY);
-    if (localData) return JSON.parse(localData);
-    localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(INITIAL_PLANTS));
-    return INITIAL_PLANTS;
+    await set(PLANTS_STORAGE_KEY, plants);
+  } catch (err) {
+    console.warn('Falha ao salvar no IndexedDB:', err);
   }
+
+  // 2. Salvar cópia redundante no LocalStorage
+  try {
+    localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(plants));
+    localStorage.setItem(INITIALIZED_FLAG_KEY, 'true');
+  } catch (err) {
+    console.warn('LocalStorage quota ou indisponível:', err);
+  }
+}
+
+// Carregar todas as plantas salvas pelo usuário
+export async function getStoredPlants() {
+  const hasInitialized = localStorage.getItem(INITIALIZED_FLAG_KEY) === 'true';
+
+  // 1. Tentar ler do IndexedDB
+  try {
+    const idbData = await get(PLANTS_STORAGE_KEY);
+    if (idbData !== undefined && idbData !== null && Array.isArray(idbData)) {
+      return idbData;
+    }
+  } catch (error) {
+    console.warn('IndexedDB não disponível, verificando localStorage:', error);
+  }
+
+  // 2. Tentar ler do LocalStorage
+  try {
+    const localData = localStorage.getItem(PLANTS_STORAGE_KEY);
+    if (localData) {
+      const parsed = JSON.parse(localData);
+      if (Array.isArray(parsed)) {
+        // Sincronizar de volta para o IndexedDB
+        set(PLANTS_STORAGE_KEY, parsed).catch(() => {});
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn('Erro ao ler do LocalStorage:', error);
+  }
+
+  // 3. Se o usuário já interagiu com o app antes e deletou as plantas, retornar vazio
+  if (hasInitialized) {
+    return [];
+  }
+
+  // 4. Primeiro acesso absoluto: semear com plantas iniciais de demonstração
+  await persistToAllStorages(INITIAL_PLANTS);
+  return INITIAL_PLANTS;
 }
 
 // Salvar ou Atualizar uma Planta
@@ -30,25 +69,25 @@ export async function savePlant(plantData) {
 
   let updatedPlants;
   if (index >= 0) {
-    // Atualizar existente
+    // Atualizar existente preservando histórico
     updatedPlants = [...currentPlants];
-    updatedPlants[index] = { ...updatedPlants[index], ...plantData, updatedAt: new Date().toISOString() };
+    updatedPlants[index] = { 
+      ...updatedPlants[index], 
+      ...plantData, 
+      updatedAt: new Date().toISOString() 
+    };
   } else {
-    // Adicionar nova
+    // Adicionar nova planta no início
     const newPlant = {
       ...plantData,
-      id: plantData.id || `plant-${Date.now()}`,
+      id: plantData.id || `plant-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       createdAt: new Date().toISOString(),
       lastWatered: plantData.lastWatered || new Date().toISOString()
     };
     updatedPlants = [newPlant, ...currentPlants];
   }
 
-  try {
-    await set(PLANTS_STORAGE_KEY, updatedPlants);
-  } catch (e) {
-    localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(updatedPlants));
-  }
+  await persistToAllStorages(updatedPlants);
   return updatedPlants;
 }
 
@@ -56,11 +95,7 @@ export async function savePlant(plantData) {
 export async function deletePlant(plantId) {
   const currentPlants = await getStoredPlants();
   const updatedPlants = currentPlants.filter(p => p.id !== plantId);
-  try {
-    await set(PLANTS_STORAGE_KEY, updatedPlants);
-  } catch (e) {
-    localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(updatedPlants));
-  }
+  await persistToAllStorages(updatedPlants);
   return updatedPlants;
 }
 
@@ -76,11 +111,8 @@ export async function markAsWatered(plantId) {
     }
     return p;
   });
-  try {
-    await set(PLANTS_STORAGE_KEY, updatedPlants);
-  } catch (e) {
-    localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(updatedPlants));
-  }
+
+  await persistToAllStorages(updatedPlants);
   return updatedPlants;
 }
 
@@ -90,9 +122,28 @@ export function getStoredApiKey() {
 }
 
 export function saveApiKey(key) {
-  if (key) {
+  if (key && key.trim() !== '') {
     localStorage.setItem(API_KEY_STORAGE_KEY, key.trim());
   } else {
     localStorage.removeItem(API_KEY_STORAGE_KEY);
   }
+}
+
+// Exportar todos os dados do jardim (Backup)
+export async function exportGardenBackup() {
+  const plants = await getStoredPlants();
+  return JSON.stringify({
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    plants
+  }, null, 2);
+}
+
+// Importar dados de backup
+export async function importGardenBackup(jsonString) {
+  const parsed = JSON.parse(jsonString);
+  const plants = Array.isArray(parsed) ? parsed : (parsed.plants || []);
+  if (!Array.isArray(plants)) throw new Error('Formato de backup inválido.');
+  await persistToAllStorages(plants);
+  return plants;
 }
