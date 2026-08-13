@@ -112,20 +112,21 @@ export async function analyzePlantImage(base64Image, apiKey) {
 }
 
 async function fetchGeminiVisionApi(base64Data, apiKey) {
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest'];
+  // Modelos suportados na API v1beta do Google AI Studio
+  const models = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash', 'gemini-1.5-pro'];
   let lastError = null;
 
-  const prompt = `Você é um botânico especialista e taxonomista vegetal com nível de precisão de reconhecimento botânico igual ou superior ao Apple Fotos e PlantNet.
-Sua missão é analisar meticulosamente a fotografia desta planta e identificar a sua espécie exata com base em suas características visuais visíveis.
+  const prompt = `Você é um botânico especialista e taxonomista vegetal de renome, com precisão idêntica ao identificador botânico do Apple Fotos e PlantNet.
+Sua missão é analisar minuciosamente a fotografia desta planta e identificar a sua espécie exata com base em suas características visuais visíveis.
 
-Orientações botânicas:
+Orientações botânicas obrigatórias:
 1. Examine com atenção: formato da folha (cordiforme, lanceolada, oval, lobada, pinada), bordas (lisas, denteadas, onduladas), nervuras, disposição dos ramos, tonalidade de verde ou variegação, textura (cerosa, suculenta, aveludada), presença de espinhos, flores ou frutos.
 2. Identifique o Nome Popular mais difundido em português do Brasil e o Nome Científico binomial (Gênero e espécie).
 3. IMPORTANTE: Identifique a espécie que realmente está na foto. NÃO padronize para espécies comuns como Manjericão a menos que a planta seja efetivamente Manjericão (Ocimum basilicum).
-4. Avalie o estado de saúde visível da planta (ex: Saudável, Solo Seco, Folhas Queimadas, Pragas, etc.).
+4. Avalie o estado de saúde visível da planta (ex: Saudável & Vigorosa, Solo Seco, Folhas Queimadas, Pragas, etc.).
 5. Defina a rotina botânica ideal para esta espécie específica (volume e frequência de rega, necessidade de luz, tipo de adubo e dicas de manejo).
 
-Retorne ESTRITAMENTE um JSON puro sem markdown ou texto extra, no seguinte formato:
+Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
 {
   "commonName": "Nome Popular em Português",
   "scientificName": "Nome Científico (em Latim)",
@@ -157,15 +158,17 @@ Retorne ESTRITAMENTE um JSON puro sem markdown ou texto extra, no seguinte forma
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify({
           contents: [
             {
               parts: [
                 { text: prompt },
                 {
-                  inline_data: {
-                    mime_type: 'image/jpeg',
+                  inlineData: {
+                    mimeType: 'image/jpeg',
                     data: base64Data
                   }
                 }
@@ -174,7 +177,7 @@ Retorne ESTRITAMENTE um JSON puro sem markdown ou texto extra, no seguinte forma
           ],
           generationConfig: {
             temperature: 0.1,
-            response_mime_type: 'application/json'
+            responseMimeType: 'application/json'
           }
         })
       });
@@ -188,7 +191,7 @@ Retorne ESTRITAMENTE um JSON puro sem markdown ou texto extra, no seguinte forma
       const textOutput = jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!textOutput) {
-        throw new Error('Nenhuma resposta de texto retornada pelo Gemini.');
+        throw new Error(`Nenhuma resposta de texto retornada pelo Gemini (${model}).`);
       }
 
       // Tentar parsear o JSON retornado
@@ -201,7 +204,7 @@ Retorne ESTRITAMENTE um JSON puro sem markdown ou texto extra, no seguinte forma
     } catch (err) {
       lastError = err;
       console.warn(`Tentativa com modelo ${model} falhou:`, err.message);
-      // Tentar próximo modelo se for erro de modelo não encontrado
+      // Continua para o próximo modelo se este falhar
     }
   }
 

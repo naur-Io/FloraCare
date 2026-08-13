@@ -148,41 +148,47 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
 
                 {/* Visualizador de Foto Selecionada */}
                 {photo ? (
-                  <div>
+                  <div style={{ width: '100%' }}>
                     <div className="preview-img-container">
                       <img src={photo} alt="Foto da planta" className="preview-img" />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
                       <button 
-                        className="btn btn-secondary"
-                        onClick={() => setPhoto(null)}
-                      >
-                        <ImageIcon size={16} />
-                        <span>Trocar Foto</span>
-                      </button>
-
-                      <button 
+                        type="button"
                         className="btn btn-primary"
                         onClick={runAiAnalysis}
                         disabled={isAnalyzing}
+                        style={{ width: '100%', padding: '12px 16px', fontSize: '0.95rem' }}
                       >
                         {isAnalyzing ? (
                           <>
-                            <div className="spinner" />
-                            <span>Analisando com IA...</span>
+                            <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
+                            <span>Identificando Espécie com IA...</span>
                           </>
                         ) : (
                           <>
-                            <Sparkles size={16} />
-                            <span>Ler com IA Gemini</span>
+                            <Sparkles size={18} />
+                            <span>Identificar Planta com IA Gemini</span>
                           </>
                         )}
+                      </button>
+
+                      <button 
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setPhoto(null)}
+                        disabled={isAnalyzing}
+                        style={{ width: '100%', padding: '10px' }}
+                      >
+                        <ImageIcon size={16} />
+                        <span>Tirar ou Escolher Outra Foto</span>
                       </button>
                     </div>
 
                     <div style={{ textAlign: 'center' }}>
                       <button 
+                        type="button"
                         className="btn btn-secondary btn-sm"
                         onClick={handleManualEntry}
                         style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)' }}
