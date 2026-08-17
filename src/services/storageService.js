@@ -119,15 +119,19 @@ export async function markAsWatered(plantId) {
 // Gerenciamento da Chave de API Gemini
 export function getStoredApiKey() {
   const raw = localStorage.getItem(API_KEY_STORAGE_KEY) || '';
-  const match = raw.match(/AIzaSy[A-Za-z0-9_-]{33}/);
-  if (match) return match[0];
+  const matchAiza = raw.match(/AIzaSy[A-Za-z0-9_-]{30,}/);
+  if (matchAiza) return matchAiza[0];
+  const matchAQ = raw.match(/AQ\.[A-Za-z0-9_.-]{30,}/);
+  if (matchAQ) return matchAQ[0];
   return raw.trim();
 }
 
 export function saveApiKey(key) {
   if (key && typeof key === 'string' && key.trim() !== '') {
-    const match = key.match(/AIzaSy[A-Za-z0-9_-]{33}/);
-    const clean = match ? match[0] : key.trim();
+    const trimmed = key.trim();
+    const matchAiza = trimmed.match(/AIzaSy[A-Za-z0-9_-]{30,}/);
+    const matchAQ = trimmed.match(/AQ\.[A-Za-z0-9_.-]{30,}/);
+    const clean = matchAiza ? matchAiza[0] : matchAQ ? matchAQ[0] : trimmed.replace(/["'\s\r\n]/g, '');
     localStorage.setItem(API_KEY_STORAGE_KEY, clean);
   } else {
     localStorage.removeItem(API_KEY_STORAGE_KEY);

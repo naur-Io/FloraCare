@@ -17,22 +17,25 @@ const DEFAULT_VISION_MODELS = [
 ];
 
 /**
- * Extrai e higieniza uma chave de API do Gemini (Google AI Studio).
- * Remove espaços, quebras de linha, aspas ou textos acidentais colados junto (ex: labels da interface).
+ * Extrai e higieniza uma chave de API do Gemini (Google AI Studio ou Google Cloud).
+ * Suporta os formatos padrão do Google: "AIzaSy..." e "AQ...."
  */
 export function sanitizeGeminiApiKey(rawInput) {
   if (!rawInput || typeof rawInput !== 'string') return '';
   
   const trimmed = rawInput.trim();
   
-  // Se o usuário colou um bloco de texto com a chave no meio, extrair o token do Google AI Studio (AIzaSy...)
-  const match = trimmed.match(/AIzaSy[A-Za-z0-9_-]{33}/);
-  if (match) {
-    return match[0];
-  }
+  // 1. Tenta extrair token clássico AIzaSy...
+  const matchAiza = trimmed.match(/AIzaSy[A-Za-z0-9_-]{30,}/);
+  if (matchAiza) return matchAiza[0];
 
-  // Se não encontrar o padrão exato, remove espaços em branco, quebras de linha e aspas
-  return trimmed.replace(/["'\s\r\n]/g, '');
+  // 2. Tenta extrair token novo Google Cloud/Gemini Developer AQ....
+  const matchAQ = trimmed.match(/AQ\.[A-Za-z0-9_.-]{30,}/);
+  if (matchAQ) return matchAQ[0];
+
+  // 3. Se for uma linha única sem espaços, remove aspas e quebras de linha
+  const cleaned = trimmed.replace(/["'\s\r\n]/g, '');
+  return cleaned;
 }
 
 /**
@@ -46,12 +49,13 @@ export async function validateGeminiApiKey(apiKey) {
 
   const cleanKey = sanitizeGeminiApiKey(apiKey);
 
-  // Verificação de segurança: se o usuário colou textos da página ou a chave é inválida
-  if (!cleanKey || cleanKey.length < 25 || !cleanKey.startsWith('AIzaSy')) {
-    if (apiKey.includes('Armazenamento') || apiKey.includes('navegador') || apiKey.includes('chave') || apiKey.includes(' ')) {
-      throw new Error('Você colou um texto da página em vez da Chave de API. A chave do Google AI Studio começa com "AIzaSy" e tem cerca de 39 caracteres.');
-    }
-    throw new Error('Formato de chave inválido. As chaves do Google AI Studio começam com "AIzaSy" (ex: AIzaSyD...).');
+  // Verificação de segurança: se o usuário colou textos com frases em vez da chave
+  if (!cleanKey || cleanKey.length < 20) {
+    throw new Error('Chave de API muito curta ou inválida. As chaves do Google costumam ter cerca de 39 a 55 caracteres (iniciando com "AIzaSy..." ou "AQ....").');
+  }
+
+  if (apiKey.includes('Armazenamento') || apiKey.includes('navegador') || apiKey.includes('Para saber detalhes')) {
+    throw new Error('Você colou um texto explicativo da página. Copie apenas o código da chave (ex: AQ... ou AIzaSy...).');
   }
 
   const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`;

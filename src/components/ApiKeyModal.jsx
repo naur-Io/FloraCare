@@ -116,7 +116,7 @@ export default function ApiKeyModal({ onClose, onKeySaved }) {
                 <input 
                   type={showPassword ? "text" : "password"} 
                   className="form-input"
-                  placeholder="AIzaSy..."
+                  placeholder="AQ... ou AIzaSy..."
                   value={key}
                   onChange={e => handleInputChange(e.target.value)}
                   style={{ paddingRight: '42px', fontFamily: showPassword ? 'monospace' : 'inherit' }}
@@ -143,7 +143,7 @@ export default function ApiKeyModal({ onClose, onKeySaved }) {
                 </button>
               </div>
               <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Dica: As chaves do Google AI Studio começam com <code>AIzaSy...</code>
+                Dica: Cole sua chave do Google AI Studio / Google Cloud (começando com <code>AQ...</code> ou <code>AIzaSy...</code>)
               </span>
             </div>
 
