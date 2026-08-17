@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, Check, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { X, Key, Check, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Sparkles, ClipboardPaste } from 'lucide-react';
 import { getStoredApiKey, saveApiKey } from '../services/storageService';
-import { validateGeminiApiKey } from '../services/geminiService';
+import { validateGeminiApiKey, sanitizeGeminiApiKey } from '../services/geminiService';
 
 export default function ApiKeyModal({ onClose, onKeySaved }) {
   const [key, setKey] = useState('');
@@ -20,11 +20,22 @@ export default function ApiKeyModal({ onClose, onKeySaved }) {
     }
   }, []);
 
+  const handleInputChange = (val) => {
+    // Se o usuário colou um bloco de texto com a chave dentro, extrair automaticamente a chave limpa
+    const clean = sanitizeGeminiApiKey(val);
+    if (clean && clean.startsWith('AIzaSy')) {
+      setKey(clean);
+    } else {
+      setKey(val);
+    }
+    if (feedback) setFeedback(null);
+  };
+
   const handleValidateAndSave = async (e) => {
     e.preventDefault();
     setFeedback(null);
 
-    const trimmedKey = key.trim();
+    const trimmedKey = sanitizeGeminiApiKey(key) || key.trim();
     if (!trimmedKey) {
       handleRemoveKey();
       return;
@@ -33,7 +44,9 @@ export default function ApiKeyModal({ onClose, onKeySaved }) {
     setIsValidating(true);
     try {
       const result = await validateGeminiApiKey(trimmedKey);
-      saveApiKey(trimmedKey);
+      const keyToSave = result.cleanKey || trimmedKey;
+      saveApiKey(keyToSave);
+      setKey(keyToSave);
       setFeedback({
         type: 'success',
         message: result.message || 'Chave de API validada com sucesso! Conectada ao Google Gemini Flash.'
@@ -105,10 +118,7 @@ export default function ApiKeyModal({ onClose, onKeySaved }) {
                   className="form-input"
                   placeholder="AIzaSy..."
                   value={key}
-                  onChange={e => {
-                    setKey(e.target.value);
-                    if (feedback) setFeedback(null);
-                  }}
+                  onChange={e => handleInputChange(e.target.value)}
                   style={{ paddingRight: '42px', fontFamily: showPassword ? 'monospace' : 'inherit' }}
                 />
                 <button
@@ -132,6 +142,9 @@ export default function ApiKeyModal({ onClose, onKeySaved }) {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Dica: As chaves do Google AI Studio começam com <code>AIzaSy...</code>
+              </span>
             </div>
 
             {/* Banner de Feedback de Validação */}

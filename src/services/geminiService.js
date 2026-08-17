@@ -17,16 +17,44 @@ const DEFAULT_VISION_MODELS = [
 ];
 
 /**
+ * Extrai e higieniza uma chave de API do Gemini (Google AI Studio).
+ * Remove espaços, quebras de linha, aspas ou textos acidentais colados junto (ex: labels da interface).
+ */
+export function sanitizeGeminiApiKey(rawInput) {
+  if (!rawInput || typeof rawInput !== 'string') return '';
+  
+  const trimmed = rawInput.trim();
+  
+  // Se o usuário colou um bloco de texto com a chave no meio, extrair o token do Google AI Studio (AIzaSy...)
+  const match = trimmed.match(/AIzaSy[A-Za-z0-9_-]{33}/);
+  if (match) {
+    return match[0];
+  }
+
+  // Se não encontrar o padrão exato, remove espaços em branco, quebras de linha e aspas
+  return trimmed.replace(/["'\s\r\n]/g, '');
+}
+
+/**
  * Valida se uma chave da API do Google Gemini é autêntica e está ativa
  * utilizando a API oficial de listagem de modelos (ListModels)
  */
 export async function validateGeminiApiKey(apiKey) {
-  if (!apiKey || apiKey.trim() === '') {
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
     throw new Error('Por favor, digite ou cole a sua chave de API.');
   }
 
-  const cleanKey = apiKey.trim();
-  const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`;
+  const cleanKey = sanitizeGeminiApiKey(apiKey);
+
+  // Verificação de segurança: se o usuário colou textos da página ou a chave é inválida
+  if (!cleanKey || cleanKey.length < 25 || !cleanKey.startsWith('AIzaSy')) {
+    if (apiKey.includes('Armazenamento') || apiKey.includes('navegador') || apiKey.includes('chave') || apiKey.includes(' ')) {
+      throw new Error('Você colou um texto da página em vez da Chave de API. A chave do Google AI Studio começa com "AIzaSy" e tem cerca de 39 caracteres.');
+    }
+    throw new Error('Formato de chave inválido. As chaves do Google AI Studio começam com "AIzaSy" (ex: AIzaSyD...).');
+  }
+
+  const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`;
 
   try {
     const res = await fetch(listUrl, {
@@ -38,7 +66,7 @@ export async function validateGeminiApiKey(apiKey) {
       const errData = await res.json().catch(() => ({}));
       const msg = errData.error?.message || '';
       if (res.status === 400 || res.status === 403 || res.status === 401) {
-        throw new Error(`Chave de API inválida: ${msg || 'Não autorizada pelo Google AI Studio. Verifique sua chave.'}`);
+        throw new Error(`Chave de API inválida: ${msg || 'Não autorizada pelo Google AI Studio. Verifique se copiou a chave correta.'}`);
       }
       throw new Error(`Erro ao validar chave (HTTP ${res.status}): ${msg}`);
     }
@@ -57,12 +85,13 @@ export async function validateGeminiApiKey(apiKey) {
 
     return { 
       valid: true, 
+      cleanKey,
       models: availableModels,
       activeModel: preferredModel,
       message: `Chave API validada com sucesso! Conectada ao Google Gemini (${preferredModel}).` 
     };
   } catch (err) {
-    if (err.message && (err.message.includes('inválida') || err.message.includes('Google AI Studio'))) {
+    if (err.message && (err.message.includes('inválida') || err.message.includes('Google AI Studio') || err.message.includes('você colou') || err.message.includes('começam com'))) {
       throw err;
     }
     throw new Error(err.message || 'Não foi possível validar a chave. Verifique sua conexão com a internet.');
@@ -222,10 +251,15 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
   "notes": "Observações gerais sobre cultivo"
 }`;
 
+  const cleanKey = sanitizeGeminiApiKey(apiKey);
+  if (!cleanKey) {
+    throw new Error('Chave de API inválida ou ausente.');
+  }
+
   // Tentar descobrir modelos suportados dinamicamente pela chave
   let modelsToTry = [...DEFAULT_VISION_MODELS];
   try {
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`);
     if (listRes.ok) {
       const data = await listRes.json();
       const available = (data.models || [])
@@ -249,7 +283,7 @@ Retorne ESTRITAMENTE um JSON puro sem blocos markdown extras:
 
   for (const model of modelsToTry) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 

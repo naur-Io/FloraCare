@@ -118,12 +118,17 @@ export async function markAsWatered(plantId) {
 
 // Gerenciamento da Chave de API Gemini
 export function getStoredApiKey() {
-  return localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+  const raw = localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+  const match = raw.match(/AIzaSy[A-Za-z0-9_-]{33}/);
+  if (match) return match[0];
+  return raw.trim();
 }
 
 export function saveApiKey(key) {
-  if (key && key.trim() !== '') {
-    localStorage.setItem(API_KEY_STORAGE_KEY, key.trim());
+  if (key && typeof key === 'string' && key.trim() !== '') {
+    const match = key.match(/AIzaSy[A-Za-z0-9_-]{33}/);
+    const clean = match ? match[0] : key.trim();
+    localStorage.setItem(API_KEY_STORAGE_KEY, clean);
   } else {
     localStorage.removeItem(API_KEY_STORAGE_KEY);
   }
