@@ -81,7 +81,9 @@ export default function App() {
       (p.origin && p.origin.toLowerCase().includes(term)) ||
       (p.soilType && p.soilType.toLowerCase().includes(term)) ||
       (p.notes && p.notes.toLowerCase().includes(term)) ||
-      (p.sunlight?.notes && p.sunlight.notes.toLowerCase().includes(term));
+      (p.sunlight?.notes && p.sunlight.notes.toLowerCase().includes(term)) ||
+      (p.propagation?.method && p.propagation.method.toLowerCase().includes(term)) ||
+      (p.propagation?.proTips && p.propagation.proTips.toLowerCase().includes(term));
     
     if (!matchesSearch) return false;
 
@@ -124,7 +126,7 @@ export default function App() {
         <section className="hero-header">
           <div className="hero-text">
             <h1>Meu Jardim Inteligente 🌿</h1>
-            <p>Guia botânico completo com quantidade de luz, rega, origem, temperatura, tipo de solo e cuidados de poda.</p>
+            <p>Guia botânico completo com quantidade de luz, rega, origem, clima, tipo de solo e guia passo a passo para tirar mudas e cultivar.</p>
           </div>
 
           <div className="stats-grid">

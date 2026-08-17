@@ -36,7 +36,7 @@ export default function ApiKeyModal({ onClose, onKeySaved }) {
       saveApiKey(trimmedKey);
       setFeedback({
         type: 'success',
-        message: result.message || 'Chave de API válida! Conectada ao Google Gemini 1.5 Flash e pronta para uso.'
+        message: result.message || 'Chave de API validada com sucesso! Conectada ao Google Gemini Flash.'
       });
       onKeySaved?.(true);
 
@@ -81,7 +81,7 @@ export default function ApiKeyModal({ onClose, onKeySaved }) {
 
         <div className="modal-body">
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
-            O FloraCare utiliza a IA multimodal <strong>Google Gemini 1.5 Flash</strong> para reconhecer plantas através das fotos.
+            O FloraCare utiliza a IA multimodal gratuita <strong>Google Gemini Flash</strong> para reconhecer espécies de plantas por foto, indicar cuidados completos e gerar o guia de mudas e cultivo.
           </p>
 
           <form onSubmit={handleValidateAndSave}>

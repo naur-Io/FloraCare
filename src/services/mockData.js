@@ -29,6 +29,20 @@ export const INITIAL_PLANTS = [
       frequency: 'A cada 30 a 45 dias na Primavera e Verão',
       notes: 'Suspender a adubação nos meses mais frios de inverno.'
     },
+    propagation: {
+      method: 'Divisão de touceiras ou Estaquia de caule com nó',
+      bestSeason: 'Primavera e Verão (clima quente)',
+      rootingTime: '3 a 5 semanas',
+      difficulty: 'Fácil',
+      stepByStep: [
+        '1. Ao fazer o replantio, retire a planta do vaso e separe com cuidado as brotações laterais que já possuem raízes próprias.',
+        '2. Se optar por estaquia de caule, corte um pedaço de caule saudável com 2 a 3 nós e remova as folhas inferiores.',
+        '3. Passe canela em pó no corte para cicatrizar e evitar contaminação por fungos.',
+        '4. Plante a muda em substrato leve (terra vegetal + perlita + fibra de coco) mantendo levemente úmido.',
+        '5. Deixe em local aquecido com luz indireta constante até consolidar novas folhas.'
+      ],
+      proTips: 'A divisão de touceira é o método mais garantido para Aglaonema, pois a nova planta já inicia o cultivo com raízes prontas e vigorosas.'
+    },
     careTips: [
       'Gosta de umidade ambiente média a alta; borrifar água nas folhas nos dias mais secos.',
       'Planta tóxica para cães e gatos se ingerida, manter fora do alcance de pets.'
@@ -63,6 +77,20 @@ export const INITIAL_PLANTS = [
       type: 'NPK 10-10-10 foliar ou Húmus de Minhoca',
       frequency: 'A cada 30 dias na Primavera e Verão',
       notes: 'Adicionar adubo orgânico ao redor da borda do vaso.'
+    },
+    propagation: {
+      method: 'Estaquia de caule na água ou solo',
+      bestSeason: 'Qualquer época do ano (ideal na Primavera/Verão)',
+      rootingTime: '10 a 20 dias',
+      difficulty: 'Muito Fácil',
+      stepByStep: [
+        '1. Escolha um ramo saudável com folhas bonitas e localize os nós (pequenas saliências ou raízes aéreas marrons no caule).',
+        '2. Corte na diagonal cerca de 1 cm abaixo de um nó, mantendo de 2 a 3 folhas no topo.',
+        '3. Retire as folhas mais baixas para que apenas o nó fique submerso.',
+        '4. Coloque o corte em um vidro transparente com água limpa em local com boa claridade indireta.',
+        '5. Troque a água a cada 2 a 3 dias para oxigenar. Quando as raízes atingirem cerca de 4 cm, transfira para um vaso com terra.'
+      ],
+      proTips: 'A Jiboia enraíza muito rápido na água. Não deixe folhas encostadas na água para evitar que apodreçam.'
     },
     careTips: [
       'Pode ser cultivada pendente ou conduzida em tutor de fibra de coco.',
@@ -99,6 +127,20 @@ export const INITIAL_PLANTS = [
       frequency: 'A cada 60 a 90 dias',
       notes: 'Exige pouca fertilização; evitar excesso de nitrogênio.'
     },
+    propagation: {
+      method: 'Divisão de rizomas/touceiras ou Estaquia de pedaços de folha',
+      bestSeason: 'Primavera e Verão',
+      rootingTime: '4 a 8 semanas',
+      difficulty: 'Fácil',
+      stepByStep: [
+        '1. Método 1 (Mais rápido): Retire a planta do vaso e corte o rizoma subterrâneo separando uma muda com raiz própria.',
+        '2. Método 2 (Folha): Corte uma folha saudável na base e divida-a em pedaços horizontais de 8 a 10 cm de comprimento.',
+        '3. Deixe os pedaços de folha secarem na sombra por 24 a 48 horas para formar uma película cicatricial na base.',
+        '4. Plante os pedaços no sentido correto de crescimento (a parte que ficava para baixo enterrada 2 cm) em solo arenoso.',
+        '5. Mantenha o substrato levemente úmido sem encharcar até o surgimento dos brotos laterais.'
+      ],
+      proTips: 'Se plantar o pedaço de folha de cabeça para baixo ele não criará raízes! Ao tirar muda de folhas de espadas com borda amarela, a nova muda de folha nascerá toda verde; para manter a borda amarela, faça a muda por divisão de rizoma.'
+    },
     careTips: [
       'Cuidado redobrado com excesso de água, que apodrece o rizoma.',
       'Uma das melhores espécies para purificar o ar no quarto.'
@@ -134,6 +176,20 @@ export const INITIAL_PLANTS = [
       frequency: 'A cada 45 dias durante os meses quentes',
       notes: 'Aplicar sempre no solo úmido.'
     },
+    propagation: {
+      method: 'Estaquia de folhas ou Separação de brotos laterais (filhotes)',
+      bestSeason: 'Primavera e Verão',
+      rootingTime: '2 a 4 semanas',
+      difficulty: 'Fácil',
+      stepByStep: [
+        '1. Destaque delicadamente uma folha saudável e gordinha da base com movimentos suaves de torção (a base deve sair inteira).',
+        '2. Deixe a folha descansar na sombra sobre papel toalha por 2 a 3 dias para que a ferida cicatrize por completo.',
+        '3. Disponha a folha horizontalmente sobre um berçário com substrato arenoso e seco, sem enterrar.',
+        '4. Deixe em local bem iluminado sem sol direto forte e umedeça levemente o substrato com borrifador a cada 3 a 5 dias.',
+        '5. Quando a mini roseta e as raízes se desenvolverem, a folha mãe secará naturalmente e a muda pode ser plantada em seu vasinho.'
+      ],
+      proTips: 'Nunca enterre a folha e não regue enquanto não surgirem as primeiras raízes rosadas, pois o excesso de umidade na folha aberta causa apodrecimento.'
+    },
     careTips: [
       'Garantir vaso com orifício de drenagem generoso.',
       'Não molhar as folhas para não remover a cera protetora natural (prina).'
@@ -141,3 +197,4 @@ export const INITIAL_PLANTS = [
     notes: 'Ideal para parapeitos de janelas ensolaradas e varandas.'
   }
 ];
+

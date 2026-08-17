@@ -18,12 +18,24 @@ import {
   FileText,
   Clock,
   CheckCircle2,
-  Info
+  Info,
+  Sprout,
+  Lightbulb
 } from 'lucide-react';
+import { getDefaultPropagationForPlant } from '../services/geminiService';
 
 export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onWater }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ ...plant });
+  
+  // Garantir que a planta possua guia de mudas mesmo se for importada ou de versão antiga
+  const initialPropagation = plant.propagation && plant.propagation.method 
+    ? plant.propagation 
+    : getDefaultPropagationForPlant(plant);
+
+  const [formData, setFormData] = useState({ 
+    ...plant,
+    propagation: initialPropagation
+  });
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -35,6 +47,17 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
       [parent]: {
         ...prev[parent],
         [field]: value
+      }
+    }));
+  };
+
+  const handlePropagationStepsChange = (text) => {
+    const steps = text.split('\n').map(s => s.trim()).filter(Boolean);
+    setFormData(prev => ({
+      ...prev,
+      propagation: {
+        ...prev.propagation,
+        stepByStep: steps
       }
     }));
   };
@@ -83,6 +106,9 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
   };
 
   const lightStyle = getLightInfo(plant.sunlight?.lightType, plant.sunlight?.period);
+  const activePropagation = plant.propagation && plant.propagation.method 
+    ? plant.propagation 
+    : getDefaultPropagationForPlant(plant);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -96,7 +122,10 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
               <button 
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
-                  setFormData({ ...plant });
+                  setFormData({ 
+                    ...plant, 
+                    propagation: activePropagation 
+                  });
                   setIsEditing(true);
                 }}
               >
@@ -249,7 +278,88 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
                 </div>
               </div>
 
-              {/* 4. SOLO & TEMPERATURA */}
+              {/* 4. GUIA DE MUDAS & PROPAGAÇÃO */}
+              <div className="form-section" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                <div className="form-section-header">
+                  <Sprout size={18} className="section-icon" color="#059669" />
+                  <h4 style={{ color: '#065f46' }}>Como Tirar Mudas (Propagação & Cultivo)</h4>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Método Principal de Fazer Muda</label>
+                    <input 
+                      type="text" 
+                      className="form-input"
+                      value={formData.propagation?.method || ''}
+                      onChange={e => handleNestedChange('propagation', 'method', e.target.value)}
+                      placeholder="Ex: Estaquia de caule na água, Divisão de touceiras..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Melhor Época do Ano</label>
+                    <input 
+                      type="text" 
+                      className="form-input"
+                      value={formData.propagation?.bestSeason || ''}
+                      onChange={e => handleNestedChange('propagation', 'bestSeason', e.target.value)}
+                      placeholder="Ex: Primavera e Verão"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Tempo para Enraizar</label>
+                    <input 
+                      type="text" 
+                      className="form-input"
+                      value={formData.propagation?.rootingTime || ''}
+                      onChange={e => handleNestedChange('propagation', 'rootingTime', e.target.value)}
+                      placeholder="Ex: 2 a 4 semanas"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Nível de Dificuldade</label>
+                    <select 
+                      className="form-select"
+                      value={formData.propagation?.difficulty || 'Fácil'}
+                      onChange={e => handleNestedChange('propagation', 'difficulty', e.target.value)}
+                    >
+                      <option value="Muito Fácil">Muito Fácil</option>
+                      <option value="Fácil">Fácil</option>
+                      <option value="Médio">Médio</option>
+                      <option value="Avançado">Avançado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Passo a Passo para Tirar a Muda (um por linha)</label>
+                  <textarea 
+                    className="form-textarea"
+                    rows="4"
+                    value={Array.isArray(formData.propagation?.stepByStep) ? formData.propagation.stepByStep.join('\n') : (formData.propagation?.stepByStep || '')}
+                    onChange={e => handlePropagationStepsChange(e.target.value)}
+                    placeholder="1. Escolha um ramo saudável...&#10;2. Corte 1 cm abaixo do nó...&#10;3. Coloque em água limpa..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Dica de Ouro / Segredo do Botânico</label>
+                  <textarea 
+                    className="form-textarea"
+                    rows="2"
+                    value={formData.propagation?.proTips || ''}
+                    onChange={e => handleNestedChange('propagation', 'proTips', e.target.value)}
+                    placeholder="Ex: Usar canela em pó na cicatriz para não dar fungo, trocar água a cada 2 dias..."
+                  />
+                </div>
+              </div>
+
+              {/* 5. SOLO & TEMPERATURA */}
               <div className="form-section">
                 <div className="form-section-header">
                   <Layers size={18} className="section-icon" color="#795548" />
@@ -279,7 +389,7 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
                 </div>
               </div>
 
-              {/* 5. COMO CUIDAR & MANUTENÇÃO */}
+              {/* 6. COMO CUIDAR & MANUTENÇÃO */}
               <div className="form-section">
                 <div className="form-section-header">
                   <Scissors size={18} className="section-icon" color="#059669" />
@@ -298,7 +408,7 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
                 </div>
               </div>
 
-              {/* 6. ADUBAÇÃO & OBSERVAÇÕES */}
+              {/* 7. ADUBAÇÃO & OBSERVAÇÕES */}
               <div className="form-section">
                 <div className="form-section-header">
                   <Flower size={18} className="section-icon" color="#9333ea" />
@@ -341,7 +451,7 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px', position: 'sticky', bottom: 0, background: 'var(--surface)', padding: '12px 0', borderTop: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px', position: 'sticky', bottom: 0, background: 'var(--surface)', padding: '12px 0', borderTop: '1px solid var(--border-color)', zIndex: 5 }}>
                 <button 
                   type="button" 
                   className="btn btn-secondary"
@@ -479,7 +589,77 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
                   </p>
                 </div>
 
-                {/* 5. CARTÃO DE COMO CUIDAR & MANUTENÇÃO */}
+                {/* 5. CARTÃO DE GUIA BOTÂNICO DE MUDAS & PROPAGAÇÃO (DESTAQUE) */}
+                <div className="detail-card detail-card-propagation" style={{ gridColumn: '1 / -1' }}>
+                  <div className="detail-card-header propagation-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Sprout size={20} color="#059669" />
+                      <span>Como Tirar Mudas & Cultivar (Propagação)</span>
+                    </div>
+                    {activePropagation?.difficulty && (
+                      <span 
+                        className="propagation-diff-pill"
+                        style={{
+                          fontSize: '0.75rem',
+                          padding: '3px 10px',
+                          borderRadius: '9999px',
+                          fontWeight: 700,
+                          background: activePropagation.difficulty.toLowerCase().includes('fácil') ? '#dcfce7' : activePropagation.difficulty.toLowerCase().includes('médio') ? '#fef3c7' : '#fee2e2',
+                          color: activePropagation.difficulty.toLowerCase().includes('fácil') ? '#166534' : activePropagation.difficulty.toLowerCase().includes('médio') ? '#92400e' : '#991b1b',
+                          border: '1px solid currentColor'
+                        }}
+                      >
+                        {activePropagation.difficulty}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Metadados rápidos de Propagação */}
+                  <div className="propagation-meta-grid">
+                    <div className="prop-meta-item">
+                      <span className="prop-meta-label">🌱 Método Recomendado</span>
+                      <span className="prop-meta-value">{activePropagation.method || 'Estaquia de caule / folha'}</span>
+                    </div>
+                    <div className="prop-meta-item">
+                      <span className="prop-meta-label">🗓️ Melhor Época</span>
+                      <span className="prop-meta-value">{activePropagation.bestSeason || 'Primavera e Verão'}</span>
+                    </div>
+                    <div className="prop-meta-item">
+                      <span className="prop-meta-label">⏳ Tempo de Enraizamento</span>
+                      <span className="prop-meta-value">{activePropagation.rootingTime || '2 a 4 semanas'}</span>
+                    </div>
+                  </div>
+
+                  {/* Passo a Passo */}
+                  {Array.isArray(activePropagation.stepByStep) && activePropagation.stepByStep.length > 0 && (
+                    <div style={{ marginTop: '14px' }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--primary-900)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Sparkles size={15} color="#059669" />
+                        <span>Passo a Passo Prático para Fazer a Muda:</span>
+                      </div>
+                      <div className="propagation-steps-list">
+                        {activePropagation.stepByStep.map((step, idx) => (
+                          <div key={idx} className="propagation-step-item">
+                            <div className="step-badge">{idx + 1}</div>
+                            <div className="step-text">{step.replace(/^\d+\.\s*/, '')}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dica de Ouro Pro */}
+                  {activePropagation.proTips && (
+                    <div className="propagation-pro-tip">
+                      <Lightbulb size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#d97706' }} />
+                      <div>
+                        <strong>Segredo do Botânico:</strong> {activePropagation.proTips}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 6. CARTÃO DE COMO CUIDAR & MANUTENÇÃO */}
                 <div className="detail-card detail-card-care" style={{ gridColumn: '1 / -1' }}>
                   <div className="detail-card-header care-header">
                     <Scissors size={18} />
@@ -490,7 +670,7 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
                   </p>
                 </div>
 
-                {/* 6. CARTÃO DE ADUBAÇÃO */}
+                {/* 7. CARTÃO DE ADUBAÇÃO */}
                 {(plant.fertilizer?.type || plant.fertilizer?.frequency) && (
                   <div className="detail-card detail-card-fertilizer" style={{ gridColumn: '1 / -1' }}>
                     <div className="detail-card-header fertilizer-header">
@@ -511,7 +691,7 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
                   </div>
                 )}
 
-                {/* 7. OBSERVAÇÕES GERAIS */}
+                {/* 8. OBSERVAÇÕES GERAIS */}
                 {plant.notes && (
                   <div className="detail-card detail-card-notes" style={{ gridColumn: '1 / -1' }}>
                     <div className="detail-card-header notes-header">
@@ -554,3 +734,4 @@ export default function PlantDetailModal({ plant, onClose, onSave, onDelete, onW
     </div>
   );
 }
+

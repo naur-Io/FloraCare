@@ -18,10 +18,12 @@ import {
   Flower,
   FileText,
   Search,
-  ExternalLink
+  ExternalLink,
+  Sprout,
+  Lightbulb
 } from 'lucide-react';
 import CameraCapture from './CameraCapture';
-import { analyzePlantImage } from '../services/geminiService';
+import { analyzePlantImage, getDefaultPropagationForPlant } from '../services/geminiService';
 import { getStoredApiKey } from '../services/storageService';
 
 export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, hasApiKey }) {
@@ -48,6 +50,20 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
       frequencyDays: 3,
       amountMl: '150 - 200 ml',
       description: 'Regar quando a terra superficial secar.'
+    },
+    propagation: {
+      method: 'Estaquia de caule na água ou solo',
+      bestSeason: 'Primavera e Verão',
+      rootingTime: '2 a 4 semanas',
+      difficulty: 'Fácil',
+      stepByStep: [
+        '1. Escolha um ramo saudável com 2 a 3 nós e folhas novas.',
+        '2. Corte cerca de 1 cm abaixo do nó com tesoura limpa.',
+        '3. Remova as folhas inferiores e passe canela em pó no corte.',
+        '4. Coloque a ponta em água limpa ou substrato úmido em luz difusa.',
+        '5. Troque a água a cada 2 dias até enraizar.'
+      ],
+      proTips: 'Usar canela em pó na cicatriz para evitar fungos e manter em local aquecido com luz indireta.'
     },
     soilType: 'Solo rico em matéria orgânica, leve e com boa drenagem',
     idealTemperature: '18°C a 27°C (clima ameno a quente)',
@@ -95,6 +111,17 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
     }));
   };
 
+  const handlePropagationStepsChange = (text) => {
+    const steps = text.split('\n').map(s => s.trim()).filter(Boolean);
+    setPlantData(prev => ({
+      ...prev,
+      propagation: {
+        ...prev.propagation,
+        stepByStep: steps
+      }
+    }));
+  };
+
   const runAiAnalysis = async () => {
     if (!photo) return;
     setIsAnalyzing(true);
@@ -104,8 +131,12 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
       const result = await analyzePlantImage(photo, apiKey);
       
       if (result._isFallback) {
-        setAiNotice('Sua chave foi direcionada para a demonstração botânica. Você pode ajustar todos os campos abaixo livremente!');
+        setAiNotice('Sua chave foi direcionada para o catálogo botânico inteligente. Você pode ajustar todos os campos abaixo livremente!');
       }
+
+      const propagationResult = result.propagation && result.propagation.method 
+        ? result.propagation 
+        : getDefaultPropagationForPlant(result);
 
       setPlantData(prev => ({
         ...prev,
@@ -125,6 +156,7 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
           amountMl: result.watering?.amountMl || prev.watering.amountMl,
           description: result.watering?.description || prev.watering.description
         },
+        propagation: propagationResult,
         soilType: result.soilType || prev.soilType,
         idealTemperature: result.idealTemperature || prev.idealTemperature,
         howToCare: result.howToCare || (Array.isArray(result.careTips) ? result.careTips.join('\n') : prev.howToCare),
@@ -192,9 +224,9 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                   <div className="ai-mode-banner active">
                     <Sparkles size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
                     <div>
-                      <strong>IA Gemini Flash 100% Gratuita Ativa</strong>
+                      <strong>IA Gemini Flash Gratuita Conectada</strong>
                       <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>
-                        Sua foto será analisada pelo modelo gratuito Gemini 1.5 Flash do Google.
+                        Sua foto será analisada pelo Google Gemini com ficha completa de cuidados e guia de mudas.
                       </p>
                     </div>
                   </div>
@@ -238,12 +270,12 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                         {isAnalyzing ? (
                           <>
                             <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
-                            <span>Identificando Espécie com IA...</span>
+                            <span>Identificando Espécie & Guia de Mudas...</span>
                           </>
                         ) : (
                           <>
                             <Sparkles size={18} />
-                            <span>Identificar com IA Gemini Grátis</span>
+                            <span>Identificar Planta & Guia de Mudas com IA</span>
                           </>
                         )}
                       </button>
@@ -499,7 +531,103 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                   </div>
                 </div>
 
-                {/* 4. SOLO, TEMPERATURA & CLIMA */}
+                {/* 4. GUIA DE MUDAS & PROPAGAÇÃO */}
+                <div className="form-section" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                  <div className="form-section-header">
+                    <Sprout size={18} className="section-icon" color="#059669" />
+                    <h4 style={{ color: '#065f46' }}>Como Tirar Mudas (Propagação & Cultivo)</h4>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Método Principal de Fazer Muda</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={plantData.propagation?.method || ''} 
+                        onChange={e => setPlantData({
+                          ...plantData,
+                          propagation: { ...plantData.propagation, method: e.target.value }
+                        })}
+                        placeholder="Ex: Estaquia de caule na água, Divisão de touceiras..."
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Melhor Época do Ano</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={plantData.propagation?.bestSeason || ''} 
+                        onChange={e => setPlantData({
+                          ...plantData,
+                          propagation: { ...plantData.propagation, bestSeason: e.target.value }
+                        })}
+                        placeholder="Ex: Primavera e Verão"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Tempo para Enraizar</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={plantData.propagation?.rootingTime || ''} 
+                        onChange={e => setPlantData({
+                          ...plantData,
+                          propagation: { ...plantData.propagation, rootingTime: e.target.value }
+                        })}
+                        placeholder="Ex: 2 a 4 semanas"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Nível de Dificuldade</label>
+                      <select 
+                        className="form-select"
+                        value={plantData.propagation?.difficulty || 'Fácil'}
+                        onChange={e => setPlantData({
+                          ...plantData,
+                          propagation: { ...plantData.propagation, difficulty: e.target.value }
+                        })}
+                      >
+                        <option value="Muito Fácil">Muito Fácil</option>
+                        <option value="Fácil">Fácil</option>
+                        <option value="Médio">Médio</option>
+                        <option value="Avançado">Avançado</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Passo a Passo para Tirar a Muda (um por linha)</label>
+                    <textarea 
+                      className="form-textarea" 
+                      rows="4"
+                      value={Array.isArray(plantData.propagation?.stepByStep) ? plantData.propagation.stepByStep.join('\n') : (plantData.propagation?.stepByStep || '')} 
+                      onChange={e => handlePropagationStepsChange(e.target.value)}
+                      placeholder="1. Escolha um ramo saudável...&#10;2. Corte 1 cm abaixo do nó...&#10;3. Coloque em água limpa..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Dica de Ouro / Segredo do Botânico</label>
+                    <textarea 
+                      className="form-textarea" 
+                      rows="2"
+                      value={plantData.propagation?.proTips || ''} 
+                      onChange={e => setPlantData({
+                        ...plantData,
+                        propagation: { ...plantData.propagation, proTips: e.target.value }
+                      })}
+                      placeholder="Ex: Usar canela em pó na cicatriz para não dar fungo, manter na água fresca..."
+                    />
+                  </div>
+                </div>
+
+                {/* 5. SOLO, TEMPERATURA & CLIMA */}
                 <div className="form-section">
                   <div className="form-section-header">
                     <Layers size={18} className="section-icon" color="#795548" />
@@ -529,7 +657,7 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                   </div>
                 </div>
 
-                {/* 5. COMO CUIDAR, PODAS & RETIRADA DE FOLHAS */}
+                {/* 6. COMO CUIDAR, PODAS & RETIRADA DE FOLHAS */}
                 <div className="form-section">
                   <div className="form-section-header">
                     <Scissors size={18} className="section-icon" color="#059669" />
@@ -548,7 +676,7 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                   </div>
                 </div>
 
-                {/* 6. ADUBAÇÃO & OBSERVAÇÕES EXTRAS */}
+                {/* 7. ADUBAÇÃO & OBSERVAÇÕES EXTRAS */}
                 <div className="form-section">
                   <div className="form-section-header">
                     <Flower size={18} className="section-icon" color="#9333ea" />
@@ -598,7 +726,7 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
                 </div>
 
                 {/* BOTÕES DE AÇÃO */}
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px', position: 'sticky', bottom: 0, background: 'var(--surface)', padding: '12px 0', borderTop: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px', position: 'sticky', bottom: 0, background: 'var(--surface)', padding: '12px 0', borderTop: '1px solid var(--border-color)', zIndex: 5 }}>
                   <button 
                     type="button" 
                     className="btn btn-secondary"
@@ -620,3 +748,4 @@ export default function AddPlantModal({ onClose, onSavePlant, onOpenKeyModal, ha
     </>
   );
 }
+

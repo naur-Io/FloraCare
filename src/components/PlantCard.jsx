@@ -1,5 +1,5 @@
 import React from 'react';
-import { Droplets, Sun, AlertCircle, CheckCircle2, Clock, Globe } from 'lucide-react';
+import { Droplets, Sun, AlertCircle, CheckCircle2, Clock, Globe, Sprout } from 'lucide-react';
 
 export default function PlantCard({ plant, onWater, onClick }) {
   // Cálculo de dias até a próxima rega
@@ -45,6 +45,7 @@ export default function PlantCard({ plant, onWater, onClick }) {
   };
 
   const lightBadge = getLightBadge();
+  const propagationMethod = plant.propagation?.method;
 
   return (
     <div className="plant-card" onClick={() => onClick(plant)}>
@@ -78,6 +79,13 @@ export default function PlantCard({ plant, onWater, onClick }) {
           <div className="card-origin-snippet" title={plant.origin}>
             <Globe size={12} />
             <span>{plant.origin}</span>
+          </div>
+        )}
+
+        {propagationMethod && (
+          <div className="card-propagation-snippet" title={`Como tirar mudas: ${propagationMethod}`}>
+            <Sprout size={12} color="#059669" />
+            <span>Muda: {propagationMethod}</span>
           </div>
         )}
 
@@ -121,3 +129,4 @@ export default function PlantCard({ plant, onWater, onClick }) {
     </div>
   );
 }
+
